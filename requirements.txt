@@ -5,3 +5,5 @@ matplotlib
 gymnasium
 stable-baselines3
 shimmy
+folium
+streamlit-folium
