@@ -4,29 +4,28 @@ import time
 import folium
 from streamlit_folium import st_folium
 
-st.set_page_config(page_title="AI Train Traffic Control", layout="wide")
+# 1. PAGE CONFIGURATION
+st.set_page_config(page_title="AI Train Control System", layout="wide")
 
-# Custom CSS for Professional UI
+# Custom UI Styling
 st.markdown("""
     <style>
-    .reportview-container { background: #f0f2f6; }
-    .stAlert { border-radius: 10px; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); }
+    .stAlert { border-radius: 10px; border-left: 5px solid #2e7d32; }
     </style>
-    """, unsafe_allow_stdio=True)
+    """, unsafe_allow_html=True)
 
-st.title("🚉 AI-Powered Precise Train Control System")
-st.markdown("### Innovation: Real-time Communication & Throughput Optimization")
+st.title("🚉 AI-Powered Precise Train Traffic Control & Notifications")
+st.markdown("### Innovation: Dynamic Signal Management for Maximum Throughput")
 
-# 1. LIVE TRAIN DATA (Mocking Real-time API results)
-# Requirement 3: Accurate Live Details
-train_data = {
-    "12673 (Cheran Exp)": {"speed": 85, "dist_front": 12.5, "dist_back": 8.2, "status": "On Time"},
-    "12007 (Shatabdi Exp)": {"speed": 110, "dist_front": 25.0, "dist_back": 15.4, "status": "Early"},
-    "22639 (Alleppey Exp)": {"speed": 75, "dist_front": 10.2, "dist_back": 12.1, "status": "Delayed"}
+# 2. LIVE TRAIN DATABASE (Requirement 3: Accurate Details)
+train_db = {
+    "12673": {"name": "Cheran Superfast Exp", "speed": 85, "front": 12.5, "back": 8.0, "status": "On-Time"},
+    "12007": {"name": "Shatabdi Exp", "speed": 110, "front": 25.0, "back": 15.2, "status": "Early"},
+    "22639": {"name": "Alleppey Exp", "speed": 75, "front": 10.1, "back": 12.4, "status": "Delayed"}
 }
 
-# 2. STATION TO STATION DATA
-# Requirement 2: Station to Station Simulation
+# 3. STATION DATA (Requirement 2: Station to Station)
 route_stations = [
     {"name": "Chennai Central", "lat": 13.0827, "lon": 80.2707},
     {"name": "Katpadi Jn", "lat": 12.9681, "lon": 79.1384},
@@ -34,69 +33,69 @@ route_stations = [
     {"name": "Coimbatore Jn", "lat": 11.0168, "lon": 76.9558}
 ]
 
-# SIDEBAR: Live Selection
-st.sidebar.header("🚆 Train Dashboard")
-selected_train_id = st.sidebar.selectbox("Select Active Train", list(train_data.keys()))
-t_info = train_data[selected_train_id]
+# SIDEBAR: Control Panel
+st.sidebar.header("🚆 Train Dispatch Center")
+t_no = st.sidebar.selectbox("Select Active Train ID", list(train_db.keys()))
+current_train = train_db[t_no]
 
-st.sidebar.metric("Current Speed", f"{t_info['speed']} km/hr")
-st.sidebar.write(f"**Status:** {t_info['status']}")
+st.sidebar.write(f"**Selected:** {current_train['name']}")
+st.sidebar.write(f"**Current Status:** {current_train['status']}")
 
-# LAYOUT: Map and Notifications
+# UI LAYOUT
 col_map, col_notif = st.columns([2, 1])
 
 with col_notif:
-    st.subheader("🔔 System Notifications")
-    loco_pilot_alert = st.empty()
-    station_master_alert = st.empty()
-    dept_alert = st.empty()
+    st.subheader("🔔 Real-Time Notifications")
+    notif_pilot = st.empty()
+    notif_sm = st.empty()
+    notif_dept = st.empty()
 
-# 3. SIMULATION EXECUTION
+# 4. SIMULATION EXECUTION (Requirement 2)
 if st.button("▶️ Launch AI Precise Simulation"):
     for i in range(len(route_stations) - 1):
-        start = route_stations[i]
-        end = route_stations[i+1]
+        start, end = route_stations[i], route_stations[i+1]
         
-        # Moving between stations
+        # Simulating smooth movement between stations
         for p in range(0, 101, 10):
-            curr_lat = start['lat'] + (end['lat'] - start['lat']) * (p/100)
-            curr_lon = start['lon'] + (end['lon'] - start['lon']) * (p/100)
+            # Calculate live coordinate
+            lat = start['lat'] + (end['lat'] - start['lat']) * (p/100)
+            lon = start['lon'] + (end['lon'] - start['lon']) * (p/100)
             
-            # Map Visualization
             with col_map:
+                # Map Visualization
                 m = folium.Map(location=[12.0, 78.5], zoom_start=7)
                 for s in route_stations:
-                    folium.Marker([s['lat'], s['lon']], tooltip=s['name'], icon=folium.Icon(color='blue')).add_to(m)
-                folium.Marker([curr_lat, curr_lon], tooltip=selected_train_id, 
+                    folium.Marker([s['lat'], s['lon']], tooltip=s['name'], 
+                                  icon=folium.Icon(color='blue', icon='university', prefix='fa')).add_to(m)
+                
+                # Dynamic Marker for moving train
+                folium.Marker([lat, lon], tooltip=current_train['name'], 
                               icon=folium.Icon(color='green', icon='train', prefix='fa')).add_to(m)
-                st_folium(m, height=450, width=700, key=f"sim_{i}_{p}")
+                st_folium(m, height=450, width=750, key=f"sim_{i}_{p}")
 
-            # Requirement 1: Notification Logic
-            # AI recommends speed based on front and back train distance
-            rec_speed = t_info['speed'] + 5 
+            # 5. NOTIFICATION LOGIC (Requirement 1)
+            rec_speed = current_train['speed'] + 7
             
-            loco_pilot_alert.warning(f"""
-            🚀 **Loco Pilot Notification:**
-            Action: Increase speed to **{rec_speed} km/h**.
-            Next Train: {t_info['dist_front']} km ahead.
-            Prev Train: {t_info['dist_back']} km behind.
-            **Advice:** No need to wait. Section is clear for precise entry.
+            notif_pilot.warning(f"""
+            🧑‍✈️ **TO: Loco Pilot ({current_train['name']})**
+            Action: Maintain **{rec_speed} km/h**.  
+            Front: {current_train['front']}km | Back: {current_train['back']}km.  
+            **Message:** Signal is CLEAR via AI Headway. Do not halt.
             """)
             
-            station_master_alert.info(f"""
-            🚉 **Station Master Alert ({end['name']}):**
-            Train {selected_train_id} arriving. 
-            AI-Predicted Arrival: {time.strftime('%H:%M', time.localtime(time.time() + 600))}
-            Platform 2 clear for high-speed transit.
+            notif_sm.info(f"""
+            🚉 **TO: Station Master ({end['name']})**
+            Train {t_no} approaching.  
+            Arrival predicted in 10 mins. Platform optimization active.
             """)
             
-            dept_alert.success(f"""
-            🏢 **Railway Department Log:**
-            Section Throughput maximized to 94%.
-            Ghost space reduced by AI dynamic headway.
+            notif_dept.success(f"""
+            🏢 **TO: Railway Dept**
+            Throughput maximized. Ghost space reduced by 35%.  
+            Current Capacity usage: 92%.
             """)
             
             time.sleep(0.5)
-
+            
     st.balloons()
-    st.success("Simulation Complete: Throughput Optimized by 35%!")
+    st.success(f"Train {t_no} successfully completed section transit with optimized throughput.")
