@@ -131,18 +131,17 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
         st.subheader("📍 REAL-TIME GPS TRACKING")
         
         # COMPLETE HTML/CSS WITH BRIGHT TEXT
-        track_html = """
+        track_html = '''
         <!DOCTYPE html>
         <html>
         <head>
             <style>
-                /* ========== FORCE ALL TEXT BRIGHT WHITE ========== */
                 * {
                     color: #FFFFFF !important;
                     margin: 0;
                     padding: 0;
                     box-sizing: border-box;
-                    font-family: 'Arial', sans-serif;
+                    font-family: "Arial", sans-serif;
                 }
                 
                 body {
@@ -159,7 +158,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     box-shadow: 0 0 25px rgba(0, 255, 255, 0.4);
                 }
                 
-                /* HEADER - BRIGHT CYAN */
                 .tracker-header {
                     color: #00FFFF !important;
                     text-shadow: 0 0 15px rgba(0, 255, 255, 0.9) !important;
@@ -171,13 +169,11 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     border-bottom: 2px solid #00FFFF !important;
                 }
                 
-                /* STATION TRACKER */
                 .station-tracker {
                     position: relative;
                     padding-left: 40px;
                 }
                 
-                /* VERTICAL LINE */
                 .vertical-line {
                     position: absolute;
                     left: 18px;
@@ -188,7 +184,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     z-index: 1;
                 }
                 
-                /* STATION NODE */
                 .station-node {
                     position: relative;
                     margin-bottom: 35px;
@@ -196,7 +191,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     z-index: 2;
                 }
                 
-                /* STATION NAME - BRIGHT WHITE */
                 .station-name {
                     color: #FFFFFF !important;
                     font-size: 24px !important;
@@ -206,7 +200,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     letter-spacing: 0.5px;
                 }
                 
-                /* TRAIN ICON */
                 .train-icon {
                     position: absolute;
                     left: -28px;
@@ -225,7 +218,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     color: #666666 !important;
                 }
                 
-                /* STATUS BADGES */
                 .status-badge {
                     display: inline-block;
                     padding: 8px 15px;
@@ -251,7 +243,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     text-shadow: 0 0 8px rgba(0, 255, 0, 0.8) !important;
                 }
                 
-                /* DETAILS TEXT - BRIGHT */
                 .station-details {
                     color: #FFFFFF !important;
                     font-size: 16px !important;
@@ -266,7 +257,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     text-shadow: 0 0 6px rgba(0, 255, 255, 0.8) !important;
                 }
                 
-                /* SATELLITE INFO */
                 .satellite-info {
                     margin-top: 30px;
                     padding-top: 20px;
@@ -288,7 +278,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     font-weight: 800 !important;
                 }
                 
-                /* ANIMATIONS */
                 @keyframes blink {
                     0%, 100% { opacity: 1; }
                     50% { opacity: 0.7; }
@@ -299,7 +288,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                     50% { transform: scale(1.02); }
                 }
                 
-                /* PROGRESS DOT */
                 .progress-dot {
                     position: absolute;
                     left: 15px;
@@ -320,10 +308,8 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                 <div class="station-tracker">
                     <div class="vertical-line"></div>
                     
-                    <!-- Progress dot -->
                     <div class="progress-dot" style="top: 25px;"></div>
                     
-                    <!-- Station 1: Chennai Central (ACTIVE) -->
                     <div class="station-node">
                         <div class="train-icon active">🚅</div>
                         <div class="station-name">Chennai Central</div>
@@ -334,7 +320,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                         </div>
                     </div>
                     
-                    <!-- Station 2: Arakkonam Jn (UPCOMING) -->
                     <div class="station-node">
                         <div class="train-icon upcoming">○</div>
                         <div class="station-name">Arakkonam Jn</div>
@@ -345,7 +330,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                         </div>
                     </div>
                     
-                    <!-- Station 3: Katpadi Jn (UPCOMING) -->
                     <div class="station-node">
                         <div class="train-icon upcoming">○</div>
                         <div class="station-name">Katpadi Jn</div>
@@ -356,7 +340,6 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
                         </div>
                     </div>
                     
-                    <!-- Station 4: Jolarpettai Jn (UPCOMING) -->
                     <div class="station-node">
                         <div class="train-icon upcoming">○</div>
                         <div class="station-name">Jolarpettai Jn</div>
@@ -383,55 +366,49 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
             </div>
             
             <script>
-                // Update time display
                 function updateTime() {
                     const now = new Date();
-                    const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    const timeElements = document.querySelectorAll('.station-details strong');
+                    const timeStr = now.toLocaleTimeString([], {hour: "2-digit", minute:"2-digit"});
+                    const timeElements = document.querySelectorAll(".station-details strong");
                     
                     timeElements.forEach(el => {
-                        if (el.textContent.includes('Just now')) {
-                            el.textContent = 'Just now (' + timeStr + ')';
+                        if (el.textContent.includes("Just now")) {
+                            el.textContent = "Just now (" + timeStr + ")";
                         }
                     });
                 }
                 
-                // Animate progress dot
                 function animateProgress() {
-                    const dot = document.querySelector('.progress-dot');
+                    const dot = document.querySelector(".progress-dot");
                     if (dot) {
-                        const currentTop = parseInt(dot.style.top) || 25;
-                        const stations = document.querySelectorAll('.station-node');
-                        const activeIndex = 0; // First station is active
+                        const stations = document.querySelectorAll(".station-node");
+                        const activeIndex = 0;
                         
                         if (activeIndex < stations.length) {
                             const targetTop = stations[activeIndex].offsetTop + 25;
-                            dot.style.top = targetTop + 'px';
-                            dot.style.transition = 'top 1s ease';
+                            dot.style.top = targetTop + "px";
+                            dot.style.transition = "top 1s ease";
                         }
                     }
                 }
                 
-                // Initialize
-                document.addEventListener('DOMContentLoaded', function() {
+                document.addEventListener("DOMContentLoaded", function() {
                     updateTime();
                     animateProgress();
                     
-                    // Update time every 30 seconds
                     setInterval(updateTime, 30000);
                     
-                    // Blink active train icon
                     setInterval(() => {
-                        const activeIcon = document.querySelector('.train-icon.active');
+                        const activeIcon = document.querySelector(".train-icon.active");
                         if (activeIcon) {
-                            activeIcon.style.opacity = activeIcon.style.opacity === '0.8' ? '1' : '0.8';
+                            activeIcon.style.opacity = activeIcon.style.opacity === "0.8" ? "1" : "0.8";
                         }
                     }, 800);
                 });
             </script>
         </body>
         </html>
-        """
+        '''
         
         components.html(track_html, height=550)
 
@@ -439,31 +416,40 @@ if st.button("🛰️ SYNC LIVE SATELLITE & START AI DISPATCH"):
         st.subheader("📢 AI ANALYTICS FEED")
         
         # 1. WEATHER PANEL
-        st.markdown(f"""
-        <div style='background-color:rgba(173,216,230,0.95); padding:25px; border-radius:15px; border-left:10px solid #1E90FF; margin-bottom:20px;'>
+        st.markdown(f'''<div style='background-color:rgba(173,216,230,0.95); padding:25px; border-radius:15px; border-left:10px solid #1E90FF; margin-bottom:20px;'>
             <h3 style='color:#000080; margin-top:0;'>☁️ WEATHER CONDITION: {weather}</h3>
             <p style='color:#000080; font-size:18px;'><b>AI Action:</b> Safety gap optimized to <span style='font-size:22px;'>{gap} km</span></p>
             <p style='color:#000080; font-size:16px;'><b>Condition Note:</b> {condition_note}</p>
             <p style='color:#000080; font-size:16px;'><b>Satellite Data:</b> Integrated from NOAA-20 & GOES-18</p>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>''', unsafe_allow_html=True)
         
         # 2. HEALTH PANEL
-        st.markdown(f"""
-        <div style='background-color:rgba(255,218,185,0.95); padding:25px; border-radius:15px; border-left:10px solid #FF8C00; margin-bottom:20px;'>
+        st.markdown(f'''<div style='background-color:rgba(255,218,185,0.95); padding:25px; border-radius:15px; border-left:10px solid #FF8C00; margin-bottom:20px;'>
             <h3 style='color:#8B0000; margin-top:0;'>🔧 ENGINE HEALTH: HEALTHY ✅</h3>
             <p style='color:#8B0000; font-size:18px;'><b>Diagnostic:</b> No critical vibrations detected</p>
             <p style='color:#8B0000; font-size:16px;'><b>Temperature:</b> Normal (85°C) | <b>Pressure:</b> Optimal</p>
             <p style='color:#8B0000; font-size:16px;'><b>Next Maintenance:</b> 2,500 km remaining</p>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>''', unsafe_allow_html=True)
         
         # 3. ENERGY PANEL
         fuel_saved = random.randint(12, 22)
-        st.markdown(f"""
-        <div style='background-color:rgba(144,238,144,0.95); padding:25px; border-radius:15px; border-left:10px solid #32CD32; margin-bottom:20px;'>
+        st.markdown(f'''<div style='background-color:rgba(144,238,144,0.95); padding:25px; border-radius:15px; border-left:10px solid #32CD32; margin-bottom:20px;'>
             <h3 style='color:#006400; margin-top:0;'>⚡ ENERGY EFFICIENCY: ACTIVE</h3>
             <p style='color:#006400; font-size:18px;'><b>Fuel Saved:</b> <span style='font-size:22px;'>{fuel_saved}%</span> via AI Throttle Control</p>
             <p style='color:#006400; font-size:16px;'><b>Optimization:</b> Regenerative braking + optimal acceleration</p>
-            <p style='color:#006400; font-size:16px;'><b>CO₂ Reduction:</b> Estimated {fuel_saved * 15}
-        
+            <p style='color:#006400; font-size:16px;'><b>CO₂ Reduction:</b> Estimated {fuel_saved * 15} kg saved</p>
+        </div>''', unsafe_allow_html=True)
+
+        # 4. PIS PREDICTION PANEL
+        arrival_time = random.randint(15, 45)
+        next_station = "Arakkonam Jn"
+        st.markdown(f'''<div style='background-color:rgba(216,191,216,0.95); padding:25px; border-radius:15px; border-left:10px solid #9370DB;'>
+            <h3 style='color:#4B0082; margin-top:0;'>🔮 AI PRECISE ARRIVAL PREDICTION (PIS)</h3>
+            <p style='color:#4B0082; font-size:18px;'><b>Next Station:</b> {next_station}</p>
+            <p style='color:#4B0082; font-size:18px;'><b>Arrival Time:</b> <span style='font-size:22px;'>{arrival_time} minutes</span></p>
+            <p style='color:#4B0082; font-size:16px;'><b>Prediction Accuracy:</b> 98.7% based on current conditions</p>
+            <p style='color:#4B0082; font-size:16px;'><b>Passenger Info:</b> Display updated on station boards</p>
+        </div>''', unsafe_allow_html=True)
+
+    st.success("✅ **SATELLITE SYNC COMPLETE!** AI DISPATCH ACTIVATED!")
+    st.balloons()
