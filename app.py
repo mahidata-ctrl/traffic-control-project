@@ -49,7 +49,7 @@ with st.sidebar:
     st.info("System: Moving Block Signaling Active")
 
 # 3. MAIN DASHBOARD
-st.title(f"🚉 AI-Powered Precise Train Control ({locomotive})")
+st.title(f"🚉 AI-Powered Indian Railway Simulator ({locomotive})")
 
 if st.button("🚀 Start Live Indian Route Simulation"):
     # Real-world Indian Route: Mumbai Central to New Delhi Corridor
@@ -124,4 +124,4 @@ if st.button("🚀 Start Live Indian Route Simulation"):
             time.sleep(2.5) 
             
     st.balloons()
-    st.success("Simulation Complete: Maximum section throughput achieved via AI Precise Control.")
+    st.success("Simulation Complete: Maximum section throughput achieved.")
