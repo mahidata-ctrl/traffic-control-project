@@ -1,84 +1,84 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import time
-from stable_baselines3 import DQN
-import gymnasium as gym
-from gymnasium import spaces
 
-# 1. AI Environment Setup
-class RailEnv(gym.Env):
-    def __init__(self):
-        super(RailEnv, self).__init__()
-        self.action_space = spaces.Discrete(3) # 0: Slow, 1: Stay, 2: Fast
-        self.observation_space = spaces.Box(low=0, high=100, shape=(1,), dtype=np.float32)
-        self.state = np.array([50.0], dtype=np.float32) # Distance to next train
+st.set_page_config(page_title="AI Train Simulator", layout="wide")
 
-    def step(self, action):
-        dist = self.state[0]
-        if action == 0: dist += 2  # Slowing down increases distance
-        if action == 2: dist -= 2  # Speeding up decreases distance
-        
-        self.state = np.array([np.clip(dist, 0, 100)], dtype=np.float32)
-        # Reward: High points for keeping distance between 20-40 (Precise Control)
-        reward = 10 if 20 <= dist <= 40 else -5
-        return self.state, reward, False, False, {}
+# Header Section
+st.title("🚉 Maximizing Section Throughput via AI-Powered Precise Control")
+st.markdown(f"**Researcher:** Mahitha | **Specialization:** B.Tech AI & Data Science")
+st.write("---")
 
-    def reset(self, seed=None):
-        self.state = np.array([50.0], dtype=np.float32)
-        return self.state, {}
+# Sidebar for Innovation Control
+st.sidebar.header("Control Panel")
+mode = st.sidebar.radio("Signaling Logic (Innovation)", ["Traditional Fixed Block", "AI-Powered Moving Block"])
+num_trains = st.sidebar.slider("Traffic Density (Number of Trains)", 2, 6, 4)
 
-# 2. Streamlit UI
-st.set_page_config(page_title="AI Train Control", layout="wide")
-st.title("🚉 Maximizing Section Throughput Using AI-Powered Precise Train Traffic Control")
-st.markdown("---")
+# Innovation Explanation
+with st.expander("See Innovation Details"):
+    st.write("""
+    **Fixed Block:** Trains wait for a whole physical section to clear. Huge 'Ghost Space' is wasted.
+    **AI Moving Block:** AI calculates 'Precise Braking Distance' in real-time. Trains can move closer, 
+    maximizing the number of trains on the same track.
+    """)
 
-# Project Details
-st.sidebar.header("Project Info")
-st.sidebar.write("**Name:** Mahitha")
-st.sidebar.write("**Degree:** B.Tech AI & DS")
-st.sidebar.write("**Focus:** Throughput Optimization")
-
-# Simulation Logic
-if st.button('Run AI Control Simulation'):
-    st.subheader("Live Simulation: AI vs Traditional Signaling")
+# Simulation Engine
+if st.button("▶️ Launch Live Simulator"):
+    # Initialize train data
+    trains = [{"id": i, "pos": -i * 20, "speed": 0, "color": "🔴" if mode == "Traditional Fixed Block" else "🟢"} for i in range(num_trains)]
     
-    # Progress bars for throughput
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("### Manual (Fixed Block)")
-        m_bar = st.progress(0)
-        m_text = st.empty()
-    with col2:
-        st.write("### AI (Moving Block)")
-        a_bar = st.progress(0)
-        a_text = st.empty()
+    track_placeholder = st.empty()
+    metrics_placeholder = st.empty()
+    chart_placeholder = st.empty()
+    
+    # Data for graph
+    history = []
 
-    # Visualizing the difference
-    for i in range(1, 101):
-        # Manual is slower (max 60%)
-        m_val = int(i * 0.6)
-        # AI is precise and faster (max 95%)
-        a_val = int(i * 0.95)
-        
-        m_bar.progress(m_val)
-        m_text.write(f"Throughput: {m_val} trains/hr")
-        
-        a_bar.progress(a_val)
-        a_text.write(f"Throughput: {a_val} trains/hr")
-        time.sleep(0.05)
+    for frame in range(100):
+        current_speeds = []
+        for i, t in enumerate(trains):
+            # INNOVATION LOGIC
+            if mode == "Traditional Fixed Block":
+                # Static Safety Buffer (Needs 25 units of gap)
+                if i > 0 and (trains[i-1]['pos'] - t['pos']) < 25:
+                    t['speed'] = 0 
+                else:
+                    t['speed'] = 3
+            else:
+                # AI MOVING BLOCK (Precise Control - Needs only 12 units of gap)
+                if i > 0 and (trains[i-1]['pos'] - t['pos']) < 12:
+                    t['speed'] = 2 # Slow down precisely
+                else:
+                    t['speed'] = 6 # High efficiency speed
 
-    st.success("Analysis Complete: AI increased throughput by ~35%!")
+            t['pos'] += t['speed']
+            if t['pos'] > 110: t['pos'] = -10 # Loop train
+            current_speeds.append(t['speed'])
 
-    # Final Comparison Chart for Paper
-    st.subheader("Performance Graph")
-    chart_data = pd.DataFrame({
-        'Time (min)': np.arange(10),
-        'Manual': [1, 2, 3, 4, 5, 5, 6, 6, 7, 8],
-        'AI-Powered': [1, 2, 4, 6, 8, 10, 12, 13, 15, 17]
-    })
-    st.line_chart(chart_data.set_index('Time (min)'))
+        # 1. Visual Track Representation
+        track_viz = "🛤️"
+        for p in range(0, 110, 5):
+            train_at_p = next((t for t in trains if p <= t['pos'] < p + 5), None)
+            if train_at_p:
+                track_viz += f"{train_at_p['color']}🚅"
+            else:
+                track_viz += "──"
+        track_viz += "🛤️"
+        track_placeholder.markdown(f"### Live Track View\n`{track_viz}`")
+
+        # 2. Metrics
+        throughput = sum([1 for s in current_speeds if s > 0])
+        avg_speed = np.mean(current_speeds)
+        with metrics_placeholder.container():
+            c1, c2 = st.columns(2)
+            c1.metric("Section Throughput", f"{throughput} Active Trains")
+            c2.metric("Average Speed", f"{avg_speed:.2f} m/s")
+
+        history.append(avg_speed)
+        time.sleep(0.1)
+
+    st.success(f"Simulation Finished! {mode} system analyzed.")
 
 st.markdown("---")
-st.write("© 2026 Mahitha - Final Year Engineering Project")
+st.info("Project intended for Conference Submission: 'Maximizing Section Throughput Using AI-Powered Precise Train Traffic Control'")
