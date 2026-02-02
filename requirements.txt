@@ -4,10 +4,4 @@ numpy
 matplotlib
 gymnasium
 stable-baselines3
-shimmystreamlit
-pandas
-numpy
-matplotlib
-gymnasium
-stable-baselines3
 shimmy
