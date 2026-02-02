@@ -49,6 +49,10 @@ with col_notif:
     st.divider()
     dept_placeholder = st.empty()
 
+# Create a persistent map placeholder
+with col_map:
+    map_placeholder = st.empty()
+
 # 4. SIMULATION EXECUTION (Station to Station)
 if st.button("▶️ Launch AI Precise Simulation"):
     for i in range(len(stations) - 1):
@@ -59,14 +63,15 @@ if st.button("▶️ Launch AI Precise Simulation"):
             lat = start_st['lat'] + (end_st['lat'] - start_st['lat']) * (p/100)
             lon = start_st['lon'] + (end_st['lon'] - start_st['lon']) * (p/100)
             
-            # Update Map on Left
-            with col_map:
-                m = folium.Map(location=[12.0, 78.5], zoom_start=7)
-                for s in stations:
-                    folium.Marker([s['lat'], s['lon']], tooltip=s['name'], 
-                                  icon=folium.Icon(color='blue', icon='university', prefix='fa')).add_to(m)
-                folium.Marker([lat, lon], tooltip=current_train['name'], 
-                              icon=folium.Icon(color='green', icon='train', prefix='fa')).add_to(m)
+            # Update Map on Left using the persistent placeholder
+            m = folium.Map(location=[12.0, 78.5], zoom_start=7)
+            for s in stations:
+                folium.Marker([s['lat'], s['lon']], tooltip=s['name'], 
+                              icon=folium.Icon(color='blue', icon='university', prefix='fa')).add_to(m)
+            folium.Marker([lat, lon], tooltip=current_train['name'], 
+                          icon=folium.Icon(color='green', icon='train', prefix='fa')).add_to(m)
+            
+            with map_placeholder:
                 st_folium(m, height=500, width=700, key=f"sim_{i}_{p}")
 
             # 5. PERMANENT NOTIFICATION (Requirement 1)
