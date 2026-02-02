@@ -6,92 +6,79 @@ import random
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="AI Train Dispatch Pro", layout="wide")
 
-# Exact Theme Color Matching from your Screenshots
+# High Contrast Dark Mode CSS
 st.markdown("""
     <style>
-    /* Main Background */
-    .stApp { background-color: #f8f9fa; }
+    /* Dark Theme for the entire App */
+    .stApp { background-color: #0e1117; color: #ffffff; }
     
-    /* Sidebar Styling (Dark Navy/Slate) */
-    section[data-testid="stSidebar"] { 
-        background-color: #262730 !important; 
-    }
-    section[data-testid="stSidebar"] * { 
-        color: #ffffff !important; 
-    }
-    
-    /* Vertical Track UI */
-    .station-node { border-left: 2px solid #555; margin-left: 45px; padding: 20px; position: relative; }
-    .station-name { font-weight: bold; font-size: 18px; color: #333; }
-    .train-icon { font-size: 30px; position: absolute; left: -22px; top: 10px; z-index: 10; }
-    .live-text { color: red; font-weight: bold; font-size: 14px; margin-top: -5px; }
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] { background-color: #161b22 !important; border-right: 1px solid #30363d; }
+    section[data-testid="stSidebar"] * { color: #ffffff !important; }
 
-    /* Exact Card Colors from your Screenshot */
-    .status-box { padding: 18px; border-radius: 10px; margin-bottom: 12px; border-left: 6px solid; box-shadow: 0px 2px 5px rgba(0,0,0,0.1); }
+    /* Vertical Track UI - High Visibility */
+    .station-node { border-left: 3px solid #58a6ff; margin-left: 45px; padding: 25px; position: relative; }
+    .station-name { font-weight: bold; font-size: 20px; color: #f0f6fc; }
+    .train-icon { font-size: 35px; position: absolute; left: -24px; top: 15px; z-index: 10; }
+    .live-text { color: #ff7b72; font-weight: bold; font-size: 15px; animation: blinker 1.2s linear infinite; }
+    @keyframes blinker { 50% { opacity: 0; } }
+
+    /* Neon Style Notification Panels */
+    .status-box { padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid; box-shadow: 0px 0px 15px rgba(0,0,0,0.5); }
     
-    /* Blue Panel - Weather */
-    .weather-panel { background-color: #e3f2fd; border-color: #2196f3; color: #1e3d59; } 
-    /* Orange/Cream Panel - Engine Health */
-    .health-panel { background-color: #fff3e0; border-color: #ff9800; color: #5d4037; }  
-    /* Green Panel - Energy Optimization */
-    .energy-panel { background-color: #e8f5e9; border-color: #4caf50; color: #1b5e20; }  
-    /* Dark Blue Panel - PIS Prediction */
-    .pis-panel { background-color: #1e3d59; border-color: #0d47a1; color: #ffffff; }     
+    .weather-panel { background-color: #0d1117; border-color: #58a6ff; color: #58a6ff; } /* Neon Blue */
+    .health-panel { background-color: #0d1117; border-color: #d29922; color: #d29922; }  /* Neon Orange */
+    .energy-panel { background-color: #0d1117; border-color: #3fb950; color: #3fb950; }  /* Neon Green */
+    .pis-panel { background-color: #161b22; border-color: #bc8cff; color: #bc8cff; }     /* Neon Purple */
     
-    /* Button Styling */
+    /* High Visibility Button */
     .stButton>button { 
-        background-color: #2980b9; 
-        color: white; 
+        width: 100%; 
         border-radius: 8px; 
-        padding: 10px 24px;
-        font-weight: bold;
-        width: 100%;
+        background-color: #238636; 
+        color: white; 
+        font-weight: bold; 
+        border: none; 
+        height: 50px;
+        box-shadow: 0px 4px 15px rgba(35, 134, 54, 0.3);
     }
     
-    /* Sidebar Methodology Box */
+    /* Methodology Box */
     .sidebar-info-box {
-        background-color: #3e4e5e;
+        background-color: #21262d;
         padding: 15px;
         border-radius: 8px;
-        color: #ffffff;
-        font-size: 14px;
+        border: 1px solid #30363d;
         margin-top: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. SIDEBAR (Matching Image 2)
+# 2. SIDEBAR
 with st.sidebar:
     st.markdown("### 🛰️ Global GPS Search")
-    train_id = st.text_input("Enter Train Number / ID", value="12673")
-    
+    train_id = st.text_input("Enter Train ID / No", value="12673")
     st.markdown("---")
     st.markdown("### 💡 AI Methodology")
-    st.markdown("Using Deep Q-Network (DQN) to minimize 'Ghost Space' and maximize Section Throughput.")
-    
-    st.markdown("""
-        <div class="sidebar-info-box">
-            <b>System:</b> Moving Block Signaling Active
-        </div>
-    """, unsafe_allow_html=True)
+    st.write("Using Deep Q-Network (DQN) to minimize 'Ghost Space' and maximize Section Throughput.")
+    st.markdown("""<div class="sidebar-info-box"><b>System Status:</b> Moving Block Signaling Active</div>""", unsafe_allow_html=True)
 
-# 3. MAIN INTERFACE
-st.title("🚀 AI-Powered Precise Train Control System")
+# 3. MAIN DASHBOARD
+st.title("🚅 AI-Powered Precise Train Control (Dark Pro)")
 
 if st.button("🛰️ Sync Live Satellite & Start AI Dispatch"):
-    # Simulated Analytics Data (Enhancements 2, 3, 4, 5)
-    weather_list = [("Heavy Rain 🌧️", 25.8), ("Cloudy Sky ☁️", 14.5), ("Dense Fog 🌫️", 32.0)]
+    # Simulated Analytics
+    weather_list = [("Dense Fog 🌫️", 35.5), ("Heavy Rain 🌧️", 24.8), ("Clear Night 🌙", 12.5)]
     weather, gap = random.choice(weather_list)
-    energy_save = random.randint(12, 19)
+    energy = random.randint(15, 25)
     
-    with st.spinner("Accessing Satellite Real-Time Data..."):
+    with st.spinner("Establishing Secure Satellite Link..."):
         time.sleep(1.5)
         
-    col_left, col_right = st.columns([1, 1.4])
+    col_map, col_data = st.columns([1, 1.3])
 
-    with col_left:
-        st.subheader("📍 Live Tracking Map")
-        # Vertical Tracking Logic
+    with col_map:
+        st.subheader("📍 Real-Time GPS Tracking")
         stations = ["Chennai", "Arakkonam", "Katpadi", "Jolarpettai"]
         curr_idx = random.randint(0, 2)
         
@@ -99,42 +86,42 @@ if st.button("🛰️ Sync Live Satellite & Start AI Dispatch"):
         for s in stations:
             is_here = (s == stations[curr_idx])
             icon = "🚅" if is_here else ""
-            line_color = "#2980b9" if stations.index(s) <= curr_idx else "#ccc"
+            line_color = "#58a6ff" if stations.index(s) <= curr_idx else "#30363d"
             
             track_html += f"""
             <div class="station-node" style="border-left-color: {line_color};">
                 <span class="train-icon">{icon}</span>
                 <div class="station-name">{s}</div>
-                {"<div class='live-text'>LIVE</div>" if is_here else "<div style='color:gray;'>Scheduled</div>"}
+                {"<div class='live-text'>● LIVE NOW</div>" if is_here else "<div style='color:#8b949e;'>Scheduled</div>"}
             </div>"""
         track_html += "</div>"
         components.html(track_html, height=450)
 
-    with col_right:
-        st.subheader("📢 AI Analytics & Dispatch")
+    with col_data:
+        st.subheader("📢 AI Precision Dispatch Orders")
         
-        # 1. Weather Integration (Blue Card)
+        # 1. Weather Integration (Neon Blue)
         st.markdown(f"""<div class="status-box weather-panel">
             <b>☁️ Weather Condition: {weather}</b><br>
-            AI Action: Adjusted Safety Gap to <b>{gap} km</b>
+            AI Response: Optimized Safety Gap to <b>{gap} km</b>
         </div>""", unsafe_allow_html=True)
         
-        # 2. Engine Health / Predictive Maintenance (Orange Card)
+        # 2. Predictive Maintenance (Neon Orange)
         st.markdown(f"""<div class="status-box health-panel">
             <b>🔧 Engine Health: Healthy ✅</b><br>
-            Next Check: {stations[curr_idx+1]} Station
+            Diagnostics: Vibration levels within AI safety limits.
         </div>""", unsafe_allow_html=True)
         
-        # 3. Energy Optimization (Green Card)
+        # 3. Energy Optimization (Neon Green)
         st.markdown(f"""<div class="status-box energy-panel">
-            <b>⚡ Energy Optimization: Active</b><br>
-            Fuel Saved: <b>{energy_save}%</b> via AI Throttle Control
+            <b>⚡ Energy Efficiency: Active</b><br>
+            Fuel Saved: <b>{energy}%</b> via AI Precise Throttle.
         </div>""", unsafe_allow_html=True)
 
-        # 4. PIS Prediction (Dark Blue Card)
+        # 4. PIS Prediction (Neon Purple)
         st.markdown(f"""<div class="status-box pis-panel">
-            <b>🔮 PIS Prediction: Arriving at {stations[curr_idx+1]} in {random.randint(15, 45)} mins (99% Precise)</b>
+            <b>🔮 AI Precise Arrival (PIS)</b><br>
+            Arriving at {stations[curr_idx+1]} in {random.randint(10, 40)} mins.
         </div>""", unsafe_allow_html=True)
 
     st.balloons()
-    st.success("DQN Model Analysis: Section throughput optimized.")
