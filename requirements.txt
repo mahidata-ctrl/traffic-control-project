@@ -6,4 +6,6 @@ gymnasium
 stable-baselines3
 shimmy
 folium
+streamlit-foliumstreamlit
 streamlit-folium
+requests
