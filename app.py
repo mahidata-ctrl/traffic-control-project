@@ -4,7 +4,7 @@ import time
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="AI Railway Dispatch", layout="wide")
 
-# CSS to mimic "Where is my Train" UI
+# Eye-catchy UI Styling
 st.markdown("""
     <style>
     .station-node { border-left: 5px solid #1e3d59; margin-left: 30px; padding: 15px; position: relative; }
@@ -51,7 +51,7 @@ if st.button("▶️ Launch AI Precision Simulation"):
     rec_speed = current_train['speed'] + 7
     
     for i in range(len(stations)):
-        # Generate the Vertical Track UI
+        # Vertical Track UI Generation
         track_html = "<div>"
         for idx, s in enumerate(stations):
             icon = "🚅" if idx == i else ""
@@ -64,7 +64,7 @@ if st.button("▶️ Launch AI Precision Simulation"):
             """
         track_html += "</div>"
         
-        # FIX: Using unsafe_allow_html=True to render the UI
+        # Rendering the HTML
         track_placeholder.markdown(track_html, unsafe_allow_html=True)
         
         # Notification Card (Requirement 1)
