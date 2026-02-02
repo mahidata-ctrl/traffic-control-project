@@ -6,45 +6,203 @@ import random
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="AI Train Dispatch Pro", layout="wide")
 
-# Dark Theme with High-Contrast Light Text
+# Pure Black Background with Neon Bright Text Colors
 st.markdown("""
     <style>
-    /* Dark Background Theme */
-    .stApp { background-color: #0e1117; color: #ffffff; }
+    /* PURE BLACK BACKGROUND THEME */
+    .stApp { 
+        background-color: #000000 !important; 
+        color: #ffffff !important;
+    }
     
-    /* Sidebar Styling (Dark Slate with White Text) */
+    /* Main container background */
+    .main .block-container { 
+        background-color: #000000 !important;
+        padding-top: 2rem;
+    }
+    
+    /* Titles and Headers - NEON BRIGHT COLORS */
+    h1, h2, h3, .stTitle, .stHeader {
+        color: #00FFFF !important; /* Neon Cyan */
+        text-shadow: 0 0 10px rgba(0, 255, 255, 0.7) !important;
+        font-weight: 800 !important;
+    }
+    
+    /* General Text - Bright White */
+    p, span, div, .stMarkdown, .stText {
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Sidebar - Dark Gray with Bright Text */
     section[data-testid="stSidebar"] { 
-        background-color: #161b22 !important; 
-        border-right: 1px solid #30363d; 
+        background-color: #111111 !important; 
+        border-right: 2px solid #00FFFF !important;
     }
-    section[data-testid="stSidebar"] * { color: #ffffff !important; }
-
-    /* Vertical Tracker UI - Bright Light Colors for Text */
-    .station-node { border-left: 4px solid #58a6ff; margin-left: 45px; padding: 25px; position: relative; }
-    .station-name { font-weight: bold; font-size: 22px; color: #f0f6fc !important; } /* Bright Off-White */
-    .train-icon { font-size: 38px; position: absolute; left: -25px; top: 15px; z-index: 10; }
-    .live-text { color: #ff7b72 !important; font-weight: bold; font-size: 18px; text-transform: uppercase; } /* Bright Coral/Red */
-    .scheduled-text { color: #8b949e !important; font-size: 16px; font-weight: 500; } 
-    @keyframes blinker { 50% { opacity: 0; } }
-
-    /* Colorful Notification Panels - Vibrant Backgrounds with Clear Text */
-    .status-box { padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 10px solid; box-shadow: 0px 4px 15px rgba(0,0,0,0.5); }
+    section[data-testid="stSidebar"] * { 
+        color: #FFFFFF !important !important;
+        font-weight: 600 !important;
+    }
     
-    .weather-panel { background-color: #e3f2fd; border-color: #2196f3; color: #0d47a1; } /* Blue bg, Dark blue text */
-    .health-panel { background-color: #fff3e0; border-color: #ff9800; color: #e65100; }  /* Orange bg, Dark orange text */
-    .energy-panel { background-color: #e8f5e9; border-color: #4caf50; color: #1b5e20; }  /* Green bg, Dark green text */
-    .pis-panel { background-color: #1e3d59; border-color: #58a6ff; color: #ffffff; }     /* Navy bg, Pure white text */
+    /* Sidebar Titles - Neon Green */
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #00FF00 !important; /* Neon Green */
+        text-shadow: 0 0 8px rgba(0, 255, 0, 0.5) !important;
+    }
     
-    /* Primary Sync Button */
+    /* Sidebar Input Fields */
+    .stTextInput>div>div>input {
+        background-color: #222222 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #00FFFF !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Info Box */
+    .stInfo {
+        background-color: #1a1a1a !important;
+        border-left: 5px solid #00FFFF !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+    }
+
+    /* VERTICAL TRACKER UI - NEON BRIGHT COLORS */
+    .station-node { 
+        border-left: 4px solid #00FFFF; 
+        margin-left: 45px; 
+        padding: 25px; 
+        position: relative; 
+        background-color: rgba(0, 0, 0, 0.5) !important;
+    }
+    
+    .station-name { 
+        font-weight: bold !important; 
+        font-size: 22px !important; 
+        color: #FF00FF !important; /* Bright Magenta */
+        text-shadow: 0 0 5px rgba(255, 0, 255, 0.5) !important;
+    }
+    
+    .train-icon { 
+        font-size: 38px !important; 
+        position: absolute !important; 
+        left: -25px !important; 
+        top: 15px !important; 
+        z-index: 10 !important;
+    }
+    
+    .live-text { 
+        color: #FFFF00 !important; /* Bright Yellow */
+        font-weight: bold !important; 
+        font-size: 18px !important; 
+        text-transform: uppercase !important;
+        text-shadow: 0 0 8px rgba(255, 255, 0, 0.7) !important;
+    }
+    
+    .scheduled-text { 
+        color: #00FF00 !important; /* Bright Green */
+        font-size: 16px !important; 
+        font-weight: 600 !important;
+        text-shadow: 0 0 5px rgba(0, 255, 0, 0.3) !important;
+    }
+    
+    @keyframes blinker { 
+        50% { opacity: 0.5; } 
+    }
+
+    /* COLORFUL NOTIFICATION PANELS - VIBRANT BACKGROUNDS WITH BRIGHT TEXT */
+    .status-box { 
+        padding: 20px !important; 
+        border-radius: 12px !important; 
+        margin-bottom: 15px !important; 
+        border-left: 10px solid !important; 
+        box-shadow: 0px 4px 15px rgba(0, 255, 255, 0.3) !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Weather Panel - Blue with Bright Text */
+    .weather-panel { 
+        background-color: rgba(30, 144, 255, 0.2) !important; 
+        border-color: #00BFFF !important; 
+        color: #00FFFF !important; /* Bright Cyan Text */
+    }
+    
+    /* Health Panel - Orange with Bright Text */
+    .health-panel { 
+        background-color: rgba(255, 140, 0, 0.2) !important; 
+        border-color: #FFA500 !important; 
+        color: #FFFF00 !important; /* Bright Yellow Text */
+    }
+    
+    /* Energy Panel - Green with Bright Text */
+    .energy-panel { 
+        background-color: rgba(50, 205, 50, 0.2) !important; 
+        border-color: #00FF00 !important; 
+        color: #00FF00 !important; /* Bright Green Text */
+    }
+    
+    /* PIS Panel - Purple with Bright Text */
+    .pis-panel { 
+        background-color: rgba(138, 43, 226, 0.2) !important; 
+        border-color: #9370DB !important; 
+        color: #FF00FF !important; /* Bright Magenta Text */
+    }
+    
+    /* PRIMARY SYNC BUTTON - NEON GLOW EFFECT */
     .stButton>button { 
-        width: 100%; 
-        border-radius: 10px; 
-        background: linear-gradient(90deg, #1f6feb, #58a6ff); 
-        color: white !important; 
-        font-weight: bold; 
-        height: 55px; 
-        border: none;
+        width: 100% !important; 
+        border-radius: 10px !important; 
+        background: linear-gradient(90deg, #000000, #222222) !important; 
+        color: #00FFFF !important !important; 
+        font-weight: bold !important; 
+        height: 55px !important; 
+        border: 2px solid #00FFFF !important;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.5) !important;
+        font-size: 18px !important;
+        text-shadow: 0 0 5px rgba(0, 255, 255, 0.7) !important;
     }
+    
+    .stButton>button:hover { 
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.8) !important;
+        background: linear-gradient(90deg, #111111, #333333) !important;
+    }
+    
+    /* Columns and Layout */
+    [data-testid="column"] {
+        background-color: rgba(0, 0, 0, 0.3) !important;
+        border-radius: 10px !important;
+        padding: 15px !important;
+        border: 1px solid rgba(0, 255, 255, 0.2) !important;
+    }
+    
+    /* Balloons animation color */
+    .balloons-container path {
+        fill: #00FFFF !important;
+    }
+    
+    /* Spinner color */
+    .stSpinner > div {
+        border-color: #00FFFF transparent transparent transparent !important;
+    }
+    
+    /* Divider lines */
+    hr {
+        border-color: #00FFFF !important;
+        background-color: #00FFFF !important;
+        height: 2px !important;
+    }
+    
+    /* Tab and selection colors */
+    .st-bd, .st-bg, .st-bh, .st-bi, .st-bj {
+        border-color: #00FFFF !important;
+    }
+    
+    /* Selection and focus */
+    :focus {
+        outline-color: #00FFFF !important;
+    }
+    
     </style>
     """, unsafe_allow_html=True)
 
@@ -79,7 +237,7 @@ if st.button("🛰️ Sync Live Satellite & Start AI Dispatch"):
         for s in stations:
             is_live = (s == stations[curr_idx])
             icon = "🚅" if is_live else ""
-            line_color = "#58a6ff" if stations.index(s) <= curr_idx else "#30363d"
+            line_color = "#00FFFF" if stations.index(s) <= curr_idx else "#444444"
             status = f"<div class='live-text'>● LIVE NOW</div>" if is_live else "<div class='scheduled-text'>Scheduled</div>"
             
             track_html += f"""
