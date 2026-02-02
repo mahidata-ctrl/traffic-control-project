@@ -4,14 +4,12 @@ import time
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="AI Railway Dispatch", layout="wide")
 
-# Eye-catchy UI Styling
+# CSS for Vertical Tracking UI
 st.markdown("""
     <style>
-    .station-node { border-left: 5px solid #1e3d59; margin-left: 30px; padding: 15px; position: relative; }
-    .station-name { font-weight: bold; font-size: 18px; color: #1e3d59; }
-    .train-icon { font-size: 30px; position: absolute; left: -22px; top: 10px; }
-    .notif-card { background-color: #fdf2e9; border-left: 8px solid #e67e22; padding: 20px; border-radius: 10px; }
-    .pilot-title { color: #d35400; font-weight: bold; font-size: 22px; }
+    .station-node { border-left: 5px solid #1e3d59; margin-left: 20px; padding: 10px; position: relative; }
+    .station-name { font-weight: bold; font-size: 16px; color: #1e3d59; }
+    .train-icon { font-size: 25px; position: absolute; left: -20px; top: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -30,21 +28,19 @@ stations = [
     {"name": "Coimbatore Jn", "time": "01:20 PM"}
 ]
 
-# SIDEBAR
+# SIDEBAR: Permanent Notification Area (Requirement 1)
 st.sidebar.header("🕹️ Dispatch Control")
 t_no = st.sidebar.selectbox("Select Active Train ID", list(train_db.keys()))
 current_train = train_db[t_no]
 
-# 3. LAYOUT
-col_track, col_notif = st.columns([1, 1.2])
+# Notification Placeholders in Sidebar to avoid flashing
+st.sidebar.divider()
+st.sidebar.subheader("🔔 Dispatch Orders")
+pilot_notif = st.sidebar.empty()
+sm_notif = st.sidebar.empty()
 
-with col_track:
-    st.subheader("📍 Live Route Progress")
-    track_placeholder = st.empty()
-
-with col_notif:
-    st.subheader("📢 Real-Time Pilot & Station Orders")
-    notif_placeholder = st.empty()
+# 3. MAIN UI LAYOUT
+track_placeholder = st.empty()
 
 # 4. SIMULATION EXECUTION (Requirement 2)
 if st.button("▶️ Launch AI Precision Simulation"):
@@ -64,22 +60,18 @@ if st.button("▶️ Launch AI Precision Simulation"):
             """
         track_html += "</div>"
         
-        # Rendering the HTML
+        # Displaying the Progress in the main area
         track_placeholder.markdown(track_html, unsafe_allow_html=True)
         
-        # Notification Card (Requirement 1)
-        notif_html = f"""
-        <div class="notif-card">
-            <p class="pilot-title">🧑‍✈️ LOCO PILOT ALERT: {current_train['name']}</p>
-            <p style="font-size: 18px;"><b>STATUS:</b> SIGNAL CLEAR. DO NOT STOP.</p>
-            <p style="font-size: 20px;"><b>AI RECOMMENDED SPEED:</b> <span style="color:green;">{rec_speed} km/h</span></p>
-            <p><b>DISTANCE:</b> Front: {current_train['front']}km | Back: {current_train['back']}km</p>
-            <hr>
-            <p style="color: #2980b9;"><b>🚉 STATION MASTER ({stations[i]['name']}):</b> Section clear for high-speed transit.</p>
-        </div>
-        """
-        notif_placeholder.markdown(notif_html, unsafe_allow_html=True)
+        # Permanent Sidebar Notifications
+        pilot_notif.warning(f"""
+        🧑‍✈️ **LOCO PILOT:** Maintain: **{rec_speed} km/h** Front Dist: {current_train['front']}km
+        """)
         
+        sm_notif.info(f"🚉 **STATION MASTER:** {stations[i]['name']} clear.")
+        
+        # 4-Second Wait so everyone can read it clearly
         time.sleep(4.0)
         
+    st.sidebar.success("Simulation Completed!")
     st.balloons()
