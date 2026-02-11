@@ -1,9 +1,12 @@
-# 🚆 Indian Railways AI-Powered Live Train Tracker
+# 🚆 Indian Railways Live Train Tracker
 
-## 🌟 Overview
-A comprehensive real-time train tracking system for Indian Railways with AI-powered optimization, predictive analytics, and live GPS visualization.
+## 🌟 Features
 
-## ✨ Features
+### 🎯 **ANY Train Number Support**
+- **Enter ANY train number** (4-5 digits)
+- **Automatic train creation** for numbers not in database
+- **Realistic simulation** based on train type
+- **Live movement** between stations
 
 ### 🗺️ **Live GPS Tracking**
 - Real-time train positions across India
@@ -23,16 +26,8 @@ A comprehensive real-time train tracking system for Indian Railways with AI-powe
 - Delay prediction (94.7% accuracy)
 - Energy efficiency scoring
 
-### 🚆 **Train Management**
-- 100+ simulated trains with realistic routes
-- Multiple train types (Rajdhani, Shatabdi, Express, etc.)
-- Zone-wise classification (NR, SR, WR, etc.)
-- Passenger and coach information
+## 🚀 Quick Start
 
-### 🎮 **Interactive Controls**
-- Manual speed and signal control
-- AI mode selection
-- Emergency controls
-- Real-time decision log
-
-## 🏗️ System Architecture
+### 1. Installation
+```bash
+pip install -r requirements.txt
