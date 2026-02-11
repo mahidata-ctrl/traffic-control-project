@@ -232,6 +232,21 @@ class IndianRailwaysData:
             'train_no': '12649', 'name': 'GARIB RATH', 'type': 'Garib Rath',
             'source': 'NDLS', 'dest': 'JP', 'zone': 'NR',
             'speed_range': (80, 115), 'route': ['NDLS', 'JP']
+        },
+        {
+            'train_no': '12677', 'name': 'ALLEPPEY EXP', 'type': 'Superfast',
+            'source': 'MAS', 'dest': 'ALLP', 'zone': 'SR',
+            'speed_range': (75, 110), 'route': ['MAS', 'KPD', 'JTJ', 'SA', 'ED', 'CBE', 'ALLP']
+        },
+        {
+            'train_no': '12679', 'name': 'MANGALORE EXP', 'type': 'Superfast',
+            'source': 'MAS', 'dest': 'MAQ', 'zone': 'SR',
+            'speed_range': (75, 110), 'route': ['MAS', 'KPD', 'JTJ', 'SA', 'ED', 'MAQ']
+        },
+        {
+            'train_no': '12681', 'name': 'TRIVANDRUM EXP', 'type': 'Superfast',
+            'source': 'MAS', 'dest': 'TVC', 'zone': 'SR',
+            'speed_range': (75, 110), 'route': ['MAS', 'KPD', 'JTJ', 'SA', 'ED', 'TVC']
         }
     ]
     
@@ -249,6 +264,9 @@ class IndianRailwaysData:
         'MYS': {'name': 'Mysore Junction', 'lat': 12.3086, 'lon': 76.6531, 'zone': 'SR'},
         'SBC': {'name': 'Bangalore City', 'lat': 12.9774, 'lon': 77.5695, 'zone': 'SR'},
         'AJJ': {'name': 'Arakkonam Junction', 'lat': 13.0846, 'lon': 79.6725, 'zone': 'SR'},
+        'ALLP': {'name': 'Alappuzha', 'lat': 9.4981, 'lon': 76.3388, 'zone': 'SR'},
+        'TVC': {'name': 'Thiruvananthapuram Central', 'lat': 8.4875, 'lon': 76.9525, 'zone': 'SR'},
+        'MAQ': {'name': 'Mangalore Central', 'lat': 12.8703, 'lon': 74.8806, 'zone': 'SR'},
         
         # Northern Railway
         'NDLS': {'name': 'New Delhi', 'lat': 28.6423, 'lon': 77.2211, 'zone': 'NR'},
@@ -294,13 +312,13 @@ class IndianRailwaysData:
         'Special': {'color': '#FFD700', 'icon': '⭐', 'priority': 8}
     }
 
-# ========== REAL-TIME TRAIN SIMULATOR ==========
+# ========== REAL-TIME TRAIN SIMULATOR (ENHANCED) ==========
 class LiveTrainSimulator:
-    """Simulates real-time train movement across India"""
+    """Enhanced simulator that creates trains dynamically for ANY train number"""
     
-    def __init__(self, num_trains=50):
+    def __init__(self, num_trains=100):
         self.num_trains = num_trains
-        self.trains = []
+        self.trains = []  # List of train dictionaries
         self.last_update = datetime.now()
         self.running = True
         self._initialize_trains()
@@ -310,7 +328,7 @@ class LiveTrainSimulator:
         self.update_thread.start()
     
     def _initialize_trains(self):
-        """Initialize trains with realistic positions"""
+        """Initialize trains with popular Indian trains"""
         self.trains = []
         
         # Add popular trains
@@ -321,12 +339,11 @@ class LiveTrainSimulator:
                 current_station = route[current_idx]
                 next_station = route[current_idx + 1]
                 
-                # Get coordinates and add random offset for between-station movement
+                # Get coordinates and add random offset
                 if current_station in IndianRailwaysData.STATIONS:
                     base_lat = IndianRailwaysData.STATIONS[current_station]['lat']
                     base_lon = IndianRailwaysData.STATIONS[current_station]['lon']
                     
-                    # Add random offset (simulating movement between stations)
                     lat_offset = random.uniform(-0.3, 0.3)
                     lon_offset = random.uniform(-0.3, 0.3)
                     
@@ -353,49 +370,149 @@ class LiveTrainSimulator:
                         'coach_count': random.randint(12, 24)
                     }
                     self.trains.append(train)
+    
+    def _create_dynamic_train(self, train_no):
+        """Create a train dynamically for any train number"""
+        train_no_str = str(train_no).strip()
         
-        # Add random trains to reach num_trains
-        while len(self.trains) < self.num_trains:
-            train_no = str(random.randint(12000, 19999))
-            train_type = random.choice(list(IndianRailwaysData.TRAIN_TYPES.keys()))
-            
-            # Random source and destination
-            stations = list(IndianRailwaysData.STATIONS.keys())
-            source = random.choice(stations)
-            dest = random.choice([s for s in stations if s != source])
-            
+        # Determine train type based on number pattern
+        if len(train_no_str) >= 1:
+            first_digit = train_no_str[0]
+            if first_digit == '1':
+                train_type = random.choice(['Rajdhani', 'Shatabdi'])
+            elif first_digit == '2':
+                train_type = 'Superfast'
+            elif first_digit == '0':
+                train_type = 'Special'
+            else:
+                train_type = random.choice(['Express', 'Passenger', 'Garib Rath'])
+        else:
+            train_type = 'Express'
+        
+        # Get random source and destination
+        stations = list(IndianRailwaysData.STATIONS.keys())
+        source = random.choice(stations)
+        destination = random.choice([s for s in stations if s != source])
+        
+        # Create a simple route
+        route = [source, destination]
+        
+        # Get station coordinates
+        if source in IndianRailwaysData.STATIONS:
+            base_lat = IndianRailwaysData.STATIONS[source]['lat']
+            base_lon = IndianRailwaysData.STATIONS[source]['lon']
+        else:
             # Random position in India
-            lat = random.uniform(8.0, 37.0)
-            lon = random.uniform(68.0, 97.0)
-            
-            train = {
-                'train_no': train_no,
-                'name': f'{train_type} {train_no}',
-                'type': train_type,
-                'source': source,
-                'destination': dest,
-                'current_station': random.choice(stations),
-                'next_station': random.choice(stations),
-                'route': [],
-                'current_idx': 0,
-                'speed': random.randint(40, 100),
-                'delay': random.randint(0, 60),
-                'status': random.choice(['Running', 'Delayed', 'On Time']),
-                'latitude': lat,
-                'longitude': lon,
-                'last_update': datetime.now(),
-                'color': IndianRailwaysData.TRAIN_TYPES[train_type]['color'],
-                'icon': IndianRailwaysData.TRAIN_TYPES[train_type]['icon'],
-                'zone': random.choice(list(IndianRailwaysData.ZONES.keys())),
-                'passengers': random.randint(50, 600),
-                'coach_count': random.randint(8, 20)
-            }
-            self.trains.append(train)
+            base_lat = random.uniform(8.0, 37.0)
+            base_lon = random.uniform(68.0, 97.0)
+        
+        # Add some offset
+        lat = base_lat + random.uniform(-0.2, 0.2)
+        lon = base_lon + random.uniform(-0.2, 0.2)
+        
+        # Speed based on train type
+        if train_type == 'Rajdhani':
+            speed_range = (90, 130)
+            icon = '👑'
+            color = '#FF0000'
+        elif train_type == 'Shatabdi':
+            speed_range = (85, 120)
+            icon = '⚡'
+            color = '#0000FF'
+        elif train_type == 'Duronto':
+            speed_range = (85, 125)
+            icon = '🚀'
+            color = '#008000'
+        elif train_type == 'Garib Rath':
+            speed_range = (80, 115)
+            icon = '💰'
+            color = '#800080'
+        elif train_type == 'Superfast':
+            speed_range = (75, 110)
+            icon = '🚅'
+            color = '#DC143C'
+        elif train_type == 'Express':
+            speed_range = (60, 95)
+            icon = '🚂'
+            color = '#228B22'
+        elif train_type == 'Passenger':
+            speed_range = (40, 70)
+            icon = '🚃'
+            color = '#808080'
+        else:  # Special
+            speed_range = (50, 100)
+            icon = '⭐'
+            color = '#FFD700'
+        
+        # Create train name
+        if train_type in ['Rajdhani', 'Shatabdi', 'Duronto', 'Garib Rath']:
+            name = f"{train_type} EXP"
+        elif train_type == 'Superfast':
+            name = f"SUPERFAST EXP"
+        elif train_type == 'Express':
+            name = f"EXPRESS"
+        elif train_type == 'Passenger':
+            name = f"PASSENGER"
+        else:
+            name = f"SPECIAL"
+        
+        # Get zone from source station
+        zone = IndianRailwaysData.STATIONS.get(source, {}).get('zone', 'NR')
+        
+        # Create the train
+        train = {
+            'train_no': train_no_str,
+            'name': f"{name} {train_no_str}",
+            'type': train_type,
+            'source': source,
+            'destination': destination,
+            'current_station': source,
+            'next_station': destination,
+            'route': route,
+            'current_idx': 0,
+            'speed': random.randint(*speed_range),
+            'delay': random.randint(0, 60),
+            'status': 'Running',
+            'latitude': lat,
+            'longitude': lon,
+            'last_update': datetime.now(),
+            'color': color,
+            'icon': icon,
+            'zone': zone,
+            'passengers': random.randint(50, 600),
+            'coach_count': random.randint(8, 20),
+            'dynamic': True  # Mark as dynamically created
+        }
+        
+        # Add to trains list
+        self.trains.append(train)
+        
+        # Log creation
+        print(f"Created dynamic train: {train_no_str} - {train['name']}")
+        
+        return train
+    
+    def find_or_create_train(self, train_no):
+        """Find train by number or create a new one dynamically"""
+        train_no_str = str(train_no).strip()
+        
+        # First, search for exact match
+        for train in self.trains:
+            if train['train_no'] == train_no_str:
+                return train
+        
+        # Search for partial match (last 5 digits)
+        for train in self.trains:
+            if train_no_str[-5:] in train['train_no']:
+                return train
+        
+        # If still not found, create a new train dynamically
+        return self._create_dynamic_train(train_no_str)
     
     def _update_loop(self):
         """Background thread to update train positions"""
         while self.running:
-            time.sleep(2)  # Update every 2 seconds
+            time.sleep(3)  # Update every 3 seconds
             self.update_positions()
     
     def update_positions(self):
@@ -418,8 +535,8 @@ class LiveTrainSimulator:
                         end_lat = IndianRailwaysData.STATIONS[next_station]['lat']
                         end_lon = IndianRailwaysData.STATIONS[next_station]['lon']
                         
-                        # Calculate progress (simplified)
-                        progress = random.uniform(0.1, 0.9)  # Random progress between stations
+                        # Calculate progress
+                        progress = random.uniform(0.1, 0.9)
                         
                         train['latitude'] = start_lat + (end_lat - start_lat) * progress
                         train['longitude'] = start_lon + (end_lon - start_lon) * progress
@@ -433,13 +550,20 @@ class LiveTrainSimulator:
             
             # Random speed changes
             speed_change = random.uniform(-3, 3)
-            min_speed, max_speed = 20, 130
+            
+            # Determine speed limits by train type
             if train['type'] == 'Rajdhani':
-                min_speed, max_speed = 80, 130
+                min_speed, max_speed = 90, 130
             elif train['type'] == 'Shatabdi':
-                min_speed, max_speed = 75, 120
+                min_speed, max_speed = 85, 120
+            elif train['type'] == 'Duronto':
+                min_speed, max_speed = 85, 125
+            elif train['type'] == 'Garib Rath':
+                min_speed, max_speed = 80, 115
             elif train['type'] == 'Superfast':
-                min_speed, max_speed = 60, 110
+                min_speed, max_speed = 75, 110
+            else:
+                min_speed, max_speed = 40, 95
             
             train['speed'] = max(min_speed, min(max_speed, train['speed'] + speed_change))
             
@@ -491,10 +615,7 @@ class LiveTrainSimulator:
     
     def get_train_by_number(self, train_no):
         """Get specific train by number"""
-        for train in self.trains:
-            if train['train_no'] == train_no:
-                return train
-        return None
+        return self.find_or_create_train(train_no)
     
     def search_trains(self, query, by='number'):
         """Search trains by various criteria"""
@@ -516,7 +637,7 @@ class LiveTrainSimulator:
     def get_statistics(self):
         """Get overall statistics"""
         total_trains = len(self.trains)
-        avg_speed = np.mean([t['speed'] for t in self.trains])
+        avg_speed = np.mean([t['speed'] for t in self.trains]) if self.trains else 0
         on_time = len([t for t in self.trains if t['delay'] <= 5])
         delayed = len([t for t in self.trains if t['delay'] > 5])
         
@@ -565,14 +686,34 @@ with st.sidebar:
     search_type = st.radio("Search By:", ["Train Number", "Train Name", "Station", "Route"], horizontal=True)
     
     if search_type == "Train Number":
-        train_no = st.text_input("Enter Train Number:", "12673")
-        if st.button("Track Train", use_container_width=True):
-            selected_train = simulator.get_train_by_number(train_no)
-            if selected_train:
-                st.session_state.selected_train = selected_train
-                st.success(f"Tracking {selected_train['name']}")
-            else:
-                st.error("Train not found!")
+        col_search1, col_search2 = st.columns([3, 1])
+        with col_search1:
+            train_no = st.text_input("Enter Train Number:", "12673", key="train_search_input")
+        with col_search2:
+            if st.button("🔍 Track", use_container_width=True):
+                if train_no.strip():
+                    selected_train = simulator.find_or_create_train(train_no.strip())
+                    if selected_train:
+                        st.session_state.selected_train = selected_train
+                        st.success(f"✅ Tracking {selected_train['name']}")
+                        
+                        # Show train info
+                        st.info(f"""
+                        **Train:** {selected_train['name']} ({selected_train['train_no']})
+                        **Type:** {selected_train['type']}
+                        **Route:** {IndianRailwaysData.STATIONS.get(selected_train['source'], {}).get('name', selected_train['source'])} → 
+                                 {IndianRailwaysData.STATIONS.get(selected_train['destination'], {}).get('name', selected_train['destination'])}
+                        **Status:** {selected_train['status']}
+                        **Speed:** {selected_train['speed']} km/h
+                        **Delay:** {selected_train['delay']} minutes
+                        """)
+                        
+                        if selected_train.get('dynamic', False):
+                            st.warning("ℹ️ This train was dynamically created for simulation")
+                        
+                        st.rerun()
+                    else:
+                        st.error("❌ Could not create train simulation")
     
     elif search_type == "Train Name":
         train_name = st.selectbox(
@@ -584,6 +725,7 @@ with st.sidebar:
                 if train['name'] == train_name:
                     st.session_state.selected_train = train
                     st.success(f"Tracking {train['name']}")
+                    st.rerun()
                     break
     
     elif search_type == "Station":
@@ -628,6 +770,34 @@ with st.sidebar:
     
     st.markdown("---")
     
+    # Popular Trains Quick Access
+    st.subheader("🚂 Popular Trains")
+    
+    popular_trains = [
+        ("12673", "CHERAN SF EXP"),
+        ("12671", "NILGIRI EXP"),
+        ("12675", "KOVAI EXP"),
+        ("12601", "MYSORE EXP"),
+        ("12431", "RAJDHANI EXP"),
+        ("12007", "SHATABDI EXP"),
+        ("12213", "DURONTO EXP"),
+        ("11013", "DECCAN EXP"),
+        ("12627", "KARNATAKA EXP"),
+        ("12649", "GARIB RATH")
+    ]
+    
+    cols = st.columns(2)
+    for idx, (train_no, name) in enumerate(popular_trains):
+        with cols[idx % 2]:
+            if st.button(f"{train_no}: {name}", key=f"pop_{train_no}", use_container_width=True):
+                train = simulator.find_or_create_train(train_no)
+                if train:
+                    st.session_state.selected_train = train
+                    st.success(f"Tracking {name}")
+                    st.rerun()
+    
+    st.markdown("---")
+    
     # Live Stats
     st.subheader("📊 Live Statistics")
     
@@ -657,10 +827,9 @@ with st.sidebar:
     **Coverage**: Pan-India
     **Update**: Real-time
     **Version**: 3.0.0
-    """)
     
-    if st.button("🔄 Force Update", use_container_width=True):
-        st.rerun()
+    💡 **Tip**: Enter ANY train number to track!
+    """)
 
 # ========== MAIN DASHBOARD ==========
 st.title("🚆 Indian Railways Live Train Tracker")
@@ -751,7 +920,7 @@ with tab1:
             'delay_filter': delay_filter,
             'zone': zones[0] if zones else None
         }
-        filtered_trains = simulator.get_all_trains(filters)
+        filtered_trains = simulator.get_all_trains(filters)[:200]  # Limit for performance
         
         # Add station markers
         if show_stations:
@@ -775,7 +944,7 @@ with tab1:
                 ).add_to(m)
         
         # Add train markers
-        for train in filtered_trains[:100]:  # Limit to 100 markers for performance
+        for train in filtered_trains:
             # Determine marker color based on delay
             if train['delay'] > 60:
                 color = '#ef4444'  # Red
@@ -1037,6 +1206,10 @@ with tab3:
             </div>
             """, unsafe_allow_html=True)
         
+        # Show if dynamically created
+        if train.get('dynamic', False):
+            st.warning("ℹ️ This train was dynamically created for simulation. Real train data may vary.")
+        
         st.markdown("---")
         
         # Detailed information in columns
@@ -1194,7 +1367,20 @@ with tab3:
         components.html(sim_html, height=250)
         
     else:
-        st.info("👈 Select a train from the map or list to see detailed information")
+        st.info("👈 Enter a train number in the sidebar to start tracking!")
+        st.markdown("""
+        ### 💡 Try these train numbers:
+        - **12673** - Cheran SF Express
+        - **12431** - Rajdhani Express  
+        - **12007** - Shatabdi Express
+        - **12601** - Mysore Express
+        - **11013** - Deccan Express
+        
+        ### 🎯 Or enter ANY train number:
+        - **56789** - Will create a new Express train
+        - **12345** - Will create a new Rajdhani/Shatabdi
+        - **Any 4-5 digit number** - Creates a simulated train
+        """)
 
 with tab4:
     # ANALYTICS VIEW
@@ -1316,21 +1502,33 @@ with tab5:
         st.markdown("### 🎮 Manual Control Panel")
         
         # Speed control
-        current_speed = st.slider("Target Speed (km/h):", 0, 150, 80)
-        st.button("Apply Speed", use_container_width=True)
+        if st.session_state.selected_train:
+            current_speed = st.slider("Target Speed (km/h):", 0, 150, st.session_state.selected_train['speed'])
+        else:
+            current_speed = st.slider("Target Speed (km/h):", 0, 150, 80)
+        
+        if st.button("Apply Speed", use_container_width=True):
+            if st.session_state.selected_train:
+                st.session_state.selected_train['speed'] = current_speed
+                st.success(f"Speed set to {current_speed} km/h")
         
         # Signal control
         signal_status = st.selectbox("Signal Status:", ["Green", "Yellow", "Red"])
-        st.button("Update Signal", use_container_width=True)
+        if st.button("Update Signal", use_container_width=True):
+            st.info(f"Signal updated to {signal_status}")
         
         # Emergency controls
         st.markdown("### 🚨 Emergency Controls")
         col_emerg1, col_emerg2 = st.columns(2)
         with col_emerg1:
             if st.button("Emergency Stop", type="secondary", use_container_width=True):
+                if st.session_state.selected_train:
+                    st.session_state.selected_train['speed'] = 0
                 st.warning("Emergency stop activated!")
         with col_emerg2:
             if st.button("Slow Down", type="secondary", use_container_width=True):
+                if st.session_state.selected_train:
+                    st.session_state.selected_train['speed'] = max(0, st.session_state.selected_train['speed'] - 20)
                 st.info("Train slowing down...")
     
     with col_control2:
@@ -1393,7 +1591,7 @@ footer = """
     <p>Real-time GPS Tracking | Moving Block Signaling | Predictive Analytics | Energy Optimization</p>
     <p style="margin-top: 10px; font-size: 10px;">
         Note: This is a simulation for demonstration purposes. Real train positions may vary.
-        Data updates every 2 seconds. Total active trains: {}
+        Data updates every 3 seconds. Total active trains: {}
     </p>
 </div>
 """.format(len(simulator.trains))
@@ -1432,7 +1630,7 @@ st.markdown("""
 if st.session_state.get('component_value'):
     train_no = st.session_state.component_value.get('trainNo')
     if train_no:
-        selected_train = simulator.get_train_by_number(train_no)
+        selected_train = simulator.find_or_create_train(train_no)
         if selected_train:
             st.session_state.selected_train = selected_train
         st.session_state.component_value = None
