@@ -1,32 +1,38 @@
-# 🚆 Indian Railways Live Train Tracker with AI
+# 🚆 Indian Railways AI-Powered Live Train Tracker
 
-## 🌟 Real-Time Features
+## 🌟 Overview
+A comprehensive real-time train tracking system for Indian Railways with AI-powered optimization, predictive analytics, and live GPS visualization.
+
+## ✨ Features
 
 ### 🗺️ **Live GPS Tracking**
-- **Real train positions** across India
-- **Interactive map** with live train markers
-- **Station-based tracking** with actual Indian Railways station codes
-- **Movement simulation** between stations
+- Real-time train positions across India
+- Interactive Folium maps with custom markers
+- Zone-wise train distribution
+- Station information with coordinates
 
-### 🔍 **Train Search & Filtering**
-- Search by **Train Number** (e.g., 12673)
-- Search by **Train Name** (e.g., CHERAN SF EXP)
-- Search by **Route** (From-To stations)
-- Filter by **Train Type** (Rajdhani, Shatabdi, Express, etc.)
-- Filter by **Speed Range** and **Delay Status**
+### 🤖 **AI-Powered Optimization**
+- Enhanced Deep Q-Network (DQN) for train control
+- Prioritized Experience Replay
+- Double DQN with target networks
+- Real-time decision making
 
-### 📊 **Live Information Display**
-- **Current Speed** and **Delay status**
-- **Next Station** and **ETA**
-- **Route Progress** visualization
-- **Live Statistics** (Active trains, punctuality, etc.)
+### 📊 **Advanced Analytics**
+- Real-time performance metrics
+- Historical data analysis
+- Delay prediction (94.7% accuracy)
+- Energy efficiency scoring
 
-### 🤖 **AI-Powered Features**
-- **Arrival Time Prediction** (94.7% accuracy)
-- **Delay Alert System** with risk assessment
-- **Efficiency Scoring** and optimization suggestions
-- **Fuel Saving** recommendations
+### 🚆 **Train Management**
+- 100+ simulated trains with realistic routes
+- Multiple train types (Rajdhani, Shatabdi, Express, etc.)
+- Zone-wise classification (NR, SR, WR, etc.)
+- Passenger and coach information
 
-## 🚀 How It Works
+### 🎮 **Interactive Controls**
+- Manual speed and signal control
+- AI mode selection
+- Emergency controls
+- Real-time decision log
 
-### Real-Time Data Flow:
+## 🏗️ System Architecture
