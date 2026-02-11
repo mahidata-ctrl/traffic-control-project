@@ -4,102 +4,234 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from collections import deque
+import pandas as pd
+import pickle
+import time
 
-# 1. DQN NETWORK ARCHITECTURE
+# 1. ENHANCED DQN NETWORK ARCHITECTURE
 class DQNetwork(nn.Module):
     def __init__(self, state_size, action_size):
         super(DQNetwork, self).__init__()
-        self.fc1 = nn.Linear(state_size, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, action_size)
+        self.fc1 = nn.Linear(state_size, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, 64)
+        self.fc4 = nn.Linear(64, action_size)
+        self.dropout = nn.Dropout(0.2)
         
     def forward(self, x):
         x = torch.relu(self.fc1(x))
+        x = self.dropout(x)
         x = torch.relu(self.fc2(x))
-        return self.fc3(x)
+        x = self.dropout(x)
+        x = torch.relu(self.fc3(x))
+        return self.fc4(x)
 
-# 
-
-# 2. RAILWAY ENVIRONMENT SIMULATOR (DQN AGENT)
+# 2. ENHANCED TRAIN AGENT WITH EXPERIENCE REPLAY
 class TrainAgent:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, use_pretrained=False):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=2000)
-        self.gamma = 0.95    # Discount rate
-        self.epsilon = 1.0   # Exploration rate
+        self.memory = deque(maxlen=10000)  # Larger memory
+        self.gamma = 0.99    # Increased discount rate
+        self.epsilon = 1.0
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.998
+        self.learning_rate = 0.001
+        self.batch_size = 64
+        
         self.model = DQNetwork(state_size, action_size)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.target_model = DQNetwork(state_size, action_size)
+        self.update_target_model()
+        
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
+        
+        # Training history
+        self.training_history = {
+            'episodes': [],
+            'rewards': [],
+            'epsilons': [],
+            'losses': []
+        }
+        
+        if use_pretrained:
+            self.load_model("train_model.pth")
 
-    def act(self, state):
-        if np.random.rand() <= self.epsilon:
+    def update_target_model(self):
+        self.target_model.load_state_dict(self.model.state_dict())
+
+    def act(self, state, training=True):
+        if training and np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
+        
         state = torch.FloatTensor(state)
-        act_values = self.model(state)
+        with torch.no_grad():
+            act_values = self.model(state)
         return torch.argmax(act_values).item()
 
-    def train_step(self, batch_size):
-        if len(self.memory) < batch_size:
-            return
+    def remember(self, state, action, reward, next_state, done):
+        self.memory.append((state, action, reward, next_state, done))
+
+    def replay(self):
+        if len(self.memory) < self.batch_size:
+            return 0
         
-        minibatch = random.sample(self.memory, batch_size)
+        minibatch = random.sample(self.memory, self.batch_size)
+        total_loss = 0
+        
+        states = []
+        targets = []
+        
         for state, action, reward, next_state, done in minibatch:
-            target = reward
-            if not done:
-                next_state = torch.FloatTensor(next_state)
-                target = (reward + self.gamma * torch.max(self.model(next_state)).item())
+            state_tensor = torch.FloatTensor(state)
+            next_state_tensor = torch.FloatTensor(next_state)
             
-            state = torch.FloatTensor(state)
-            target_f = self.model(state)
-            target_f = target_f.clone()
+            # Current Q values
+            current_q = self.model(state_tensor)[action]
+            
+            # Calculate target Q value
+            with torch.no_grad():
+                if done:
+                    target = reward
+                else:
+                    next_q = torch.max(self.target_model(next_state_tensor))
+                    target = reward + self.gamma * next_q.item()
+            
+            # Calculate loss
+            target_f = self.model(state_tensor).clone()
             target_f[action] = target
             
-            self.optimizer.zero_grad()
-            output = self.model(state)
-            loss = self.criterion(output, target_f)
-            loss.backward()
-            self.optimizer.step()
-            
+            states.append(state_tensor)
+            targets.append(target_f)
+        
+        # Batch optimization
+        states = torch.stack(states)
+        targets = torch.stack(targets)
+        
+        self.optimizer.zero_grad()
+        outputs = self.model(states)
+        loss = self.criterion(outputs, targets)
+        loss.backward()
+        
+        # Gradient clipping
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+        
+        self.optimizer.step()
+        
+        # Decay epsilon
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-
-# 3. TRAINING LOOP
-if __name__ == "__main__":
-    # States: [Train Speed, Distance to Next Train, Weather Condition]
-    # Actions: [Decrease Speed, Maintain, Increase Speed]
-    state_size = 3 
-    action_size = 3
-    agent = TrainAgent(state_size, action_size)
-    episodes = 100 
-
-    print("🚀 AI Training Started: Optimizing Section Throughput...")
-    
-    for e in range(episodes):
-        # Initial State: Random Speed (0-1), Random Gap (0.5-1), Weather (0 or 1)
-        state = np.array([random.uniform(0.1, 0.8), random.uniform(0.5, 1.0), random.choice([0, 1])])
-        state = np.reshape(state, [1, state_size])
         
-        for time_step in range(50):
-            action = agent.act(state)
-            
-            # Logic: If gap is large and speed is low, Reward for increasing speed
-            # Reward Calculation: Throughput Optimization
-            reward = 1 if action == 2 and state[0][1] > 0.7 else -1
-            
-            next_state = np.array([random.uniform(0.1, 0.8), random.uniform(0.5, 1.0), random.choice([0, 1])])
-            next_state = np.reshape(next_state, [1, state_size])
-            done = True if time_step == 49 else False
-            
-            agent.memory.append((state, action, reward, next_state, done))
-            state = next_state
-            
-        agent.train_step(32)
-        if e % 10 == 0:
-            print(f"Episode: {e}/{episodes}, Exploration Rate: {agent.epsilon:.2f}")
+        return loss.item()
 
-    # SAVE THE TRAINED MODEL
-    torch.save(agent.model.state_size(), "train_model.pth")
-    print("✅ Training Complete. Model saved as 'train_model.pth'")
+    def train(self, env, episodes=500, render_every=50):
+        print("🚀 AI Training Started: Optimizing Section Throughput...")
+        
+        for e in range(episodes):
+            state = env.reset()
+            state = np.reshape(state, [1, self.state_size])
+            total_reward = 0
+            episode_loss = 0
+            steps = 0
+            
+            for time_step in range(200):  # Increased episode length
+                action = self.act(state)
+                next_state, reward, done, _ = env.step(action)
+                next_state = np.reshape(next_state, [1, self.state_size])
+                
+                self.remember(state, action, reward, next_state, done)
+                loss = self.replay()
+                episode_loss += loss if loss else 0
+                
+                total_reward += reward
+                state = next_state
+                steps += 1
+                
+                if done:
+                    break
+            
+            # Update target network every 10 episodes
+            if e % 10 == 0:
+                self.update_target_model()
+            
+            # Record training history
+            self.training_history['episodes'].append(e)
+            self.training_history['rewards'].append(total_reward)
+            self.training_history['epsilons'].append(self.epsilon)
+            self.training_history['losses'].append(episode_loss / steps if steps > 0 else 0)
+            
+            if e % render_every == 0:
+                print(f"Episode: {e}/{episodes}, "
+                      f"Reward: {total_reward:.2f}, "
+                      f"Epsilon: {self.epsilon:.3f}, "
+                      f"Avg Loss: {episode_loss/steps if steps>0 else 0:.4f}")
+        
+        self.save_training_history()
+        return self.training_history
+
+    def save_model(self, filename):
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'target_model_state_dict': self.target_model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'epsilon': self.epsilon,
+            'training_history': self.training_history
+        }, filename)
+        print(f"✅ Model saved as {filename}")
+
+    def load_model(self, filename):
+        checkpoint = torch.load(filename)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.target_model.load_state_dict(checkpoint['target_model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.epsilon = checkpoint['epsilon']
+        self.training_history = checkpoint['training_history']
+        print(f"✅ Model loaded from {filename}")
+
+    def save_training_history(self):
+        df = pd.DataFrame(self.training_history)
+        df.to_csv('training_history.csv', index=False)
+        print("✅ Training history saved to training_history.csv")
+
+    def get_q_values(self, state):
+        state = torch.FloatTensor(state)
+        with torch.no_grad():
+            q_values = self.model(state)
+        return q_values.numpy()
+
+# 3. ENHANCED TRAINING LOOP WITH ENVIRONMENT INTEGRATION
+if __name__ == "__main__":
+    from rail_env import TrainTrafficEnv
+    
+    # Initialize environment
+    env = TrainTrafficEnv()
+    state_size = env.observation_space.shape[0]
+    action_size = env.action_space.n
+    
+    # Initialize agent
+    agent = TrainAgent(state_size, action_size)
+    
+    # Train agent
+    episodes = 500
+    training_history = agent.train(env, episodes=episodes, render_every=50)
+    
+    # Save the trained model
+    agent.save_model("train_model_enhanced.pth")
+    
+    # Test the trained agent
+    print("\n🧪 Testing trained agent...")
+    state = env.reset()
+    total_test_reward = 0
+    
+    for _ in range(100):
+        state_tensor = np.reshape(state, [1, state_size])
+        action = agent.act(state_tensor, training=False)
+        next_state, reward, done, _ = env.step(action)
+        total_test_reward += reward
+        state = next_state
+        
+        if done:
+            break
+    
+    print(f"✅ Test complete. Total reward: {total_test_reward}")
+    print("🚆 AI Training Complete!")
