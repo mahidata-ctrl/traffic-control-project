@@ -1,38 +1,32 @@
-# 🚆 AI-Powered Train Traffic Control System v2.0
+# 🚆 Indian Railways Live Train Tracker with AI
 
-## 🎯 Project Overview
-This enhanced system uses **Deep Reinforcement Learning (DQN)** to optimize train frequency and throughput in railway sections by minimizing "ghost space" between trains while ensuring safety. The system now features real-time GPS tracking, interactive visualizations, and advanced AI analytics.
+## 🌟 Real-Time Features
 
-## ✨ Enhanced Features
+### 🗺️ **Live GPS Tracking**
+- **Real train positions** across India
+- **Interactive map** with live train markers
+- **Station-based tracking** with actual Indian Railways station codes
+- **Movement simulation** between stations
 
-### 🗺️ **Real-Time GPS Tracking**
-- Interactive Folium maps with live train position
-- Satellite view with route visualization
-- Station markers with arrival/departure information
-- Moving train animation on map
+### 🔍 **Train Search & Filtering**
+- Search by **Train Number** (e.g., 12673)
+- Search by **Train Name** (e.g., CHERAN SF EXP)
+- Search by **Route** (From-To stations)
+- Filter by **Train Type** (Rajdhani, Shatabdi, Express, etc.)
+- Filter by **Speed Range** and **Delay Status**
 
-### 🤖 **Advanced AI Features**
-- **Deep Q-Network (DQN)** with experience replay
-- **Double DQN** for stable training
-- **Target network** for better convergence
-- **Gradient clipping** for stable learning
+### 📊 **Live Information Display**
+- **Current Speed** and **Delay status**
+- **Next Station** and **ETA**
+- **Route Progress** visualization
+- **Live Statistics** (Active trains, punctuality, etc.)
 
-### 📊 **Enhanced Visualizations**
-- **4 View Modes**: Map, Track, 3D, Analytics
-- **Interactive Plotly 3D route visualization**
-- **Real-time performance metrics dashboard**
-- **Animated vertical track with live updates**
+### 🤖 **AI-Powered Features**
+- **Arrival Time Prediction** (94.7% accuracy)
+- **Delay Alert System** with risk assessment
+- **Efficiency Scoring** and optimization suggestions
+- **Fuel Saving** recommendations
 
-### 🛡️ **Safety & Optimization**
-- **Weather-adaptive** safety gaps
-- **Predictive maintenance** alerts
-- **Energy optimization** with regenerative braking
-- **Collision avoidance** algorithms
+## 🚀 How It Works
 
-### 🎮 **Simulation Controls**
-- Adjustable simulation speed
-- Multiple train/route selection
-- Real-time parameter adjustment
-- Data export capabilities
-
-## 🏗️ System Architecture
+### Real-Time Data Flow:
