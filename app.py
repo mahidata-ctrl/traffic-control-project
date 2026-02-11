@@ -8,709 +8,735 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import folium
 from streamlit_folium import folium_static
-import torch
-from train import TrainAgent, DQNetwork
-from rail_env import TrainTrafficEnv
+import requests
+import json
+from geopy.distance import geodesic
+import pytz
+from dateutil import parser
 
-# 1. PAGE CONFIGURATION
+# Page Configuration
 st.set_page_config(
-    page_title="🚆 AI Train Traffic Control System",
+    page_title="🚆 Indian Railways Live Tracker",
     page_icon="🚆",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for enhanced UI
+# Custom CSS
 st.markdown("""
 <style>
-    /* Main Background */
-    .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        color: #f8fafc;
-    }
+    .stApp { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #f8fafc; }
+    h1, h2, h3, h4, h5, h6 { color: #38bdf8 !important; font-weight: 700 !important; }
     
-    /* Headers */
-    h1, h2, h3, h4, h5, h6 {
-        color: #38bdf8 !important;
-        font-weight: 700 !important;
-    }
-    
-    /* Cards */
-    .metric-card {
-        background: rgba(30, 41, 59, 0.8);
-        border-radius: 12px;
-        padding: 20px;
-        border-left: 4px solid #38bdf8;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-bottom: 15px;
-        transition: transform 0.3s ease;
-    }
-    .metric-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    /* Buttons */
-    .stButton > button {
-        background: linear-gradient(90deg, #3b82f6, #1d4ed8);
-        color: white;
-        border: none;
-        padding: 12px 24px;
+    .live-train-card {
+        background: rgba(30, 41, 59, 0.9);
         border-radius: 10px;
-        font-weight: 600;
-        font-size: 16px;
+        padding: 15px;
+        margin: 10px 0;
+        border-left: 4px solid #3b82f6;
         transition: all 0.3s ease;
-        width: 100%;
+        cursor: pointer;
     }
-    .stButton > button:hover {
-        background: linear-gradient(90deg, #1d4ed8, #1e40af);
-        transform: scale(1.05);
-    }
-    
-    /* GPS Tracking Container */
-    .gps-container {
-        background: rgba(15, 23, 42, 0.9);
-        border-radius: 15px;
-        padding: 20px;
-        border: 2px solid #334155;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    .live-train-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
     }
     
-    /* Live Indicator */
-    .live-indicator {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        background-color: #ef4444;
-        border-radius: 50%;
-        animation: pulse 1.5s infinite;
-        margin-right: 8px;
+    .selected-train {
+        border-left: 4px solid #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+    }
+    
+    .train-marker {
+        animation: pulse 2s infinite;
     }
     @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-    }
-    
-    /* Progress Bar */
-    .progress-container {
-        height: 8px;
-        background-color: #334155;
-        border-radius: 4px;
-        margin: 10px 0;
-        overflow: hidden;
-    }
-    .progress-bar {
-        height: 100%;
-        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-        border-radius: 4px;
-        transition: width 0.5s ease;
-    }
-    
-    /* Train Icon Animation */
-    .train-moving {
-        animation: moveTrain 2s linear infinite;
-    }
-    @keyframes moveTrain {
-        0% { transform: translateX(0); }
-        100% { transform: translateX(20px); }
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+        100% { transform: scale(1); opacity: 1; }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 2. SIDEBAR CONFIGURATION
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2972/2972544.png", width=80)
-    st.title("🚆 Control Panel")
-    
-    st.markdown("---")
-    
-    # Train Selection
-    st.subheader("🛰️ GPS Configuration")
-    train_id = st.selectbox(
-        "Select Train",
-        ["12673 - Cheran SF Exp", "12671 - Nilgiri Exp", "12675 - Kovai Exp", "22651 - Rajdhani Exp"]
-    )
-    
-    # Route Selection
-    route = st.selectbox(
-        "Select Route",
-        ["Chennai → Salem", "Chennai → Coimbatore", "Chennai → Bangalore", "Custom Route"]
-    )
-    
-    # AI Mode Selection
-    ai_mode = st.radio(
-        "🤖 AI Operation Mode",
-        ["Fully Autonomous", "Human-Assisted", "Training Mode", "Safety-First"]
-    )
-    
-    # Simulation Speed
-    sim_speed = st.slider("Simulation Speed", 1, 10, 3)
-    
-    # Weather Conditions
-    weather = st.select_slider(
-        "Weather Conditions",
-        options=["Clear ☀️", "Light Rain 🌦️", "Heavy Rain 🌧️", "Fog 🌫️", "Storm ⛈️"],
-        value="Clear ☀️"
-    )
-    
-    # Track Condition
-    track_condition = st.select_slider(
-        "Track Condition",
-        options=["Excellent 🟢", "Good 🟡", "Fair 🟠", "Poor 🔴", "Maintenance 🔧"],
-        value="Excellent 🟢"
-    )
-    
-    st.markdown("---")
-    
-    # AI Status
-    st.subheader("🧠 AI Status")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Learning Rate", "0.001")
-    with col2:
-        st.metric("Exploration", "12%")
-    
-    # System Info
-    st.markdown("---")
-    st.subheader("📊 System Info")
-    st.info("""
-    **AI Model**: Deep Q-Network (DQN)
-    **Training Episodes**: 500
-    **Safety Protocol**: Moving Block Signaling
-    **Update Frequency**: 100ms
-    """)
+# Indian Railways Colors
+IR_COLORS = {
+    'Rajdhani': '#FF0000',
+    'Shatabdi': '#0000FF',
+    'Duronto': '#008000',
+    'Garib Rath': '#800080',
+    'Jan Shatabdi': '#FFA500',
+    'Superfast': '#DC143C',
+    'Express': '#228B22',
+    'Passenger': '#808080',
+    'Special': '#FFD700'
+}
 
-# 3. MAIN DASHBOARD
-st.title("🚀 AI-Powered Precise Train Control System")
-st.markdown("---")
+# ========== REAL-TIME TRAIN DATA FUNCTIONS ==========
 
-# Initialize session state for simulation
-if 'simulation_running' not in st.session_state:
-    st.session_state.simulation_running = False
-if 'current_station' not in st.session_state:
-    st.session_state.current_station = 0
-if 'train_data' not in st.session_state:
-    st.session_state.train_data = []
-
-# 4. REAL-TIME METRICS
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("Current Speed", "85 km/h", "↑ 5.2%")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col2:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("Distance to Next", "2.8 km", "Safe ✅")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col3:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("Energy Saved", "18.7%", "↑ 3.1%")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with col4:
-    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    st.metric("On-Time Performance", "96.3%", "↑ 1.8%")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# 5. GPS TRACKING VISUALIZATION
-st.markdown("---")
-st.subheader("📍 Live GPS Tracking & Route Visualization")
-
-# Create tabs for different views
-tab1, tab2, tab3, tab4 = st.tabs(["🌍 Map View", "📈 Track View", "🚆 3D View", "📊 Analytics"])
-
-with tab1:
-    # Interactive Folium Map
-    col_map, col_info = st.columns([2, 1])
+class IndianRailwaysAPI:
+    """Mock API for Indian Railways Live Data"""
     
-    with col_map:
-        # Create map centered on India
-        m = folium.Map(location=[20.5937, 78.9629], zoom_start=5, tiles='CartoDB dark_matter')
-        
-        # Define route coordinates (Chennai to Salem)
-        route_coords = [
-            [13.0827, 80.2707],  # Chennai
-            [13.0846, 79.6725],  # Arakkonam
-            [12.9702, 79.1590],  # Katpadi
-            [12.5667, 78.5667],  # Jolarpettai
-            [11.6643, 78.1460]   # Salem
-        ]
-        
-        # Add route line
-        folium.PolyLine(
-            route_coords,
-            weight=4,
-            color='#3b82f6',
-            opacity=0.8,
-            tooltip='Train Route'
-        ).add_to(m)
-        
-        # Add stations
-        station_names = ['Chennai Central', 'Arakkonam Jn', 'Katpadi Jn', 'Jolarpettai Jn', 'Salem Jn']
-        for idx, (coord, name) in enumerate(zip(route_coords, station_names)):
-            folium.Marker(
-                coord,
-                popup=f"""
-                <div style='font-family: Arial; padding: 10px;'>
-                    <h4 style='color: #3b82f6; margin: 0;'>{name}</h4>
-                    <p style='margin: 5px 0;'><b>Status:</b> {'Arrived ✅' if idx <= st.session_state.current_station else 'Pending ⏳'}</p>
-                    <p style='margin: 5px 0;'><b>Platform:</b> PF {idx+1}</p>
-                </div>
-                """,
-                tooltip=name,
-                icon=folium.Icon(
-                    color='green' if idx <= st.session_state.current_station else 'gray',
-                    icon='train',
-                    prefix='fa'
-                )
-            ).add_to(m)
-        
-        # Add moving train marker
-        if st.session_state.current_station < len(route_coords) - 1:
-            # Interpolate position between stations
-            progress = st.session_state.get('progress', 0)
-            start_coord = route_coords[st.session_state.current_station]
-            end_coord = route_coords[st.session_state.current_station + 1]
-            
-            lat = start_coord[0] + (end_coord[0] - start_coord[0]) * progress
-            lng = start_coord[1] + (end_coord[1] - start_coord[1]) * progress
-            
-            folium.Marker(
-                [lat, lng],
-                popup=f"""
-                <div style='font-family: Arial; padding: 10px;'>
-                    <h4 style='color: #ef4444; margin: 0;'>🚅 {train_id}</h4>
-                    <p style='margin: 5px 0;'><b>Speed:</b> 85 km/h</p>
-                    <p style='margin: 5px 0;'><b>Next Station:</b> {station_names[st.session_state.current_station + 1]}</p>
-                    <p style='margin: 5px 0;'><b>ETA:</b> {random.randint(10, 30)} min</p>
-                </div>
-                """,
-                tooltip=f"Train: {train_id}",
-                icon=folium.DivIcon(
-                    html=f"""
-                    <div style='
-                        background: linear-gradient(45deg, #3b82f6, #8b5cf6);
-                        width: 40px;
-                        height: 40px;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: white;
-                        font-size: 20px;
-                        border: 3px solid white;
-                        box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
-                        animation: pulse 1.5s infinite;
-                    '>
-                        🚅
-                    </div>
-                    """
-                )
-            ).add_to(m)
-        
-        # Display map
-        folium_static(m, width=800, height=500)
+    # Major Indian Railway Stations Coordinates
+    STATIONS = {
+        'Chennai Central': (13.0827, 80.2707),
+        'Mumbai Central': (18.9698, 72.8195),
+        'New Delhi': (28.6423, 77.2211),
+        'Howrah Junction': (22.5859, 88.3476),
+        'Bangalore City': (12.9774, 77.5695),
+        'Secunderabad Junction': (17.4399, 78.4983),
+        'Ahmedabad Junction': (23.0258, 72.5873),
+        'Patna Junction': (25.6093, 85.1238),
+        'Lucknow NR': (26.8465, 80.9462),
+        'Kolkata': (22.5726, 88.3639),
+        'Pune Junction': (18.5204, 73.8567),
+        'Jaipur Junction': (26.9124, 75.7873),
+        'Nagpur Junction': (21.1458, 79.0882),
+        'Bhopal Junction': (23.2599, 77.4126),
+        'Visakhapatnam Junction': (17.6868, 83.2185)
+    }
     
-    with col_info:
-        st.markdown('<div class="gps-container">', unsafe_allow_html=True)
-        st.subheader("📡 GPS Information")
-        
-        # GPS Status
-        st.markdown(f"""
-        <div style='margin-bottom: 20px;'>
-            <span class='live-indicator'></span>
-            <span style='font-weight: bold; color: #ef4444;'>LIVE TRACKING ACTIVE</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Current Position
-        st.metric("Latitude", "12.3456° N")
-        st.metric("Longitude", "78.9012° E")
-        st.metric("Altitude", "245 m")
-        
-        # GPS Accuracy
-        st.progress(0.92)
-        st.caption("GPS Accuracy: 92%")
-        
-        # Satellite Info
-        st.markdown("### 🛰️ Satellites in View")
-        col_sat1, col_sat2 = st.columns(2)
-        with col_sat1:
-            st.metric("GPS", "8", "+2")
-        with col_sat2:
-            st.metric("GLONASS", "6", "+1")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-
-with tab2:
-    # Enhanced Vertical Track View
-    st.markdown('<div class="gps-container">', unsafe_allow_html=True)
-    
-    railway_data = [
-        {"name": "Chennai Central", "arr": "--:--", "dep": "22:10", "pf": "PF 10", "dist": "0 km", "delay": "0 min"},
-        {"name": "Arakkonam Jn", "arr": "23:08", "dep": "23:10", "pf": "PF 3", "dist": "69 km", "delay": "2 min"},
-        {"name": "Katpadi Jn", "arr": "23:58", "dep": "00:01", "pf": "PF 1", "dist": "130 km", "delay": "1 min"},
-        {"name": "Jolarpettai Jn", "arr": "01:23", "dep": "01:25", "pf": "PF 2", "dist": "214 km", "delay": "0 min"},
-        {"name": "Salem Jn", "arr": "02:57", "dep": "03:00", "pf": "PF 4", "dist": "334 km", "delay": "0 min"}
+    # Popular Indian Trains
+    TRAINS = [
+        {
+            'train_no': '12673',
+            'name': 'CHERAN SF EXP',
+            'type': 'Superfast',
+            'source': 'Chennai Central',
+            'destination': 'Coimbatore Junction',
+            'current_station': 'Katpadi Junction',
+            'next_station': 'Jolarpettai Junction',
+            'speed': random.randint(75, 95),
+            'delay': random.randint(0, 20),
+            'status': 'Running',
+            'last_update': datetime.now(),
+            'route': ['Chennai Central', 'Arakkonam Junction', 'Katpadi Junction', 
+                     'Jolarpettai Junction', 'Salem Junction', 'Coimbatore Junction']
+        },
+        {
+            'train_no': '12007',
+            'name': 'SHATABDI EXP',
+            'type': 'Shatabdi',
+            'source': 'Chennai Central',
+            'destination': 'Bangalore City',
+            'current_station': 'Bangarpet Junction',
+            'next_station': 'Krishnarajapuram',
+            'speed': random.randint(85, 105),
+            'delay': 0,
+            'status': 'Running',
+            'last_update': datetime.now(),
+            'route': ['Chennai Central', 'Katpadi Junction', 'Bangarpet Junction',
+                     'Krishnarajapuram', 'Bangalore City']
+        },
+        {
+            'train_no': '12431',
+            'name': 'RAJDHANI EXP',
+            'type': 'Rajdhani',
+            'source': 'New Delhi',
+            'destination': 'Howrah Junction',
+            'current_station': 'Kanpur Central',
+            'next_station': 'Allahabad Junction',
+            'speed': random.randint(90, 110),
+            'delay': random.randint(5, 15),
+            'status': 'Running',
+            'last_update': datetime.now(),
+            'route': ['New Delhi', 'Kanpur Central', 'Allahabad Junction',
+                     'Mughalsarai Junction', 'Howrah Junction']
+        },
+        {
+            'train_no': '11013',
+            'name': 'DECCAN EXPRESS',
+            'type': 'Express',
+            'source': 'Mumbai Central',
+            'destination': 'Pune Junction',
+            'current_station': 'Karjat',
+            'next_station': 'Lonavala',
+            'speed': random.randint(65, 85),
+            'delay': random.randint(10, 30),
+            'status': 'Running',
+            'last_update': datetime.now(),
+            'route': ['Mumbai Central', 'Dadar', 'Kalyan Junction', 'Karjat',
+                     'Lonavala', 'Pune Junction']
+        },
+        {
+            'train_no': '12601',
+            'name': 'MYSORE EXP',
+            'type': 'Superfast',
+            'source': 'Chennai Central',
+            'destination': 'Mysore Junction',
+            'current_station': 'Bangalore City',
+            'next_station': 'Mandya',
+            'speed': random.randint(70, 90),
+            'delay': random.randint(0, 10),
+            'status': 'Running',
+            'last_update': datetime.now(),
+            'route': ['Chennai Central', 'Bangalore City', 'Mandya', 'Mysore Junction']
+        }
     ]
     
-    # Create vertical track visualization
-    track_html = """
-    <div style='position: relative; padding-left: 60px; margin: 20px 0; min-height: 600px;'>
-        <!-- Main vertical track line -->
-        <div style='
-            position: absolute;
-            left: 70px;
-            top: 0;
-            bottom: 0;
-            width: 6px;
-            background: linear-gradient(to bottom, #334155, #64748b);
-            border-radius: 3px;
-            z-index: 1;
-        '></div>
+    @staticmethod
+    def get_live_trains(limit=20):
+        """Get live train data with simulated movement"""
+        trains = []
+        for train in IndianRailwaysAPI.TRAINS:
+            # Simulate movement by updating position
+            route = train['route']
+            current_idx = route.index(train['current_station'])
+            
+            # Move train along route with probability
+            if random.random() > 0.7 and current_idx < len(route) - 1:
+                train['current_station'] = route[current_idx + 1]
+                train['next_station'] = route[current_idx + 2] if current_idx + 2 < len(route) else 'Terminal'
+            
+            # Random speed fluctuation
+            speed_change = random.uniform(-5, 5)
+            train['speed'] = max(10, min(110, train['speed'] + speed_change))
+            
+            # Random delay changes
+            delay_change = random.randint(-5, 5)
+            train['delay'] = max(0, train['delay'] + delay_change)
+            
+            # Get coordinates for current station
+            current_coords = IndianRailwaysAPI.STATIONS.get(
+                train['current_station'].split(' Junction')[0].split(' Central')[0],
+                (random.uniform(8, 37), random.uniform(68, 97))
+            )
+            
+            # Add some randomness to position (simulate between stations)
+            lat_offset = random.uniform(-0.5, 0.5)
+            lon_offset = random.uniform(-0.5, 0.5)
+            current_coords = (current_coords[0] + lat_offset, current_coords[1] + lon_offset)
+            
+            trains.append({
+                **train,
+                'latitude': current_coords[0],
+                'longitude': current_coords[1],
+                'last_update': datetime.now(),
+                'color': IR_COLORS.get(train['type'], '#3b82f6')
+            })
         
-        <!-- Progress line -->
-        <div id='progress-line' style='
-            position: absolute;
-            left: 70px;
-            top: 0;
-            width: 6px;
-            background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
-            border-radius: 3px;
-            z-index: 2;
-            transition: height 1s ease;
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-        '></div>
+        # Add more random trains
+        for i in range(limit - len(trains)):
+            train_no = str(random.randint(12000, 12999))
+            train_type = random.choice(list(IR_COLORS.keys()))
+            source = random.choice(list(IndianRailwaysAPI.STATIONS.keys()))
+            destination = random.choice([s for s in IndianRailwaysAPI.STATIONS.keys() if s != source])
+            
+            trains.append({
+                'train_no': train_no,
+                'name': f'{train_type} {train_no}',
+                'type': train_type,
+                'source': source,
+                'destination': destination,
+                'current_station': random.choice(list(IndianRailwaysAPI.STATIONS.keys())),
+                'next_station': random.choice(list(IndianRailwaysAPI.STATIONS.keys())),
+                'speed': random.randint(40, 100),
+                'delay': random.randint(0, 45),
+                'status': random.choice(['Running', 'Delayed', 'On Time', 'Late']),
+                'latitude': random.uniform(8, 37),
+                'longitude': random.uniform(68, 97),
+                'last_update': datetime.now(),
+                'color': IR_COLORS.get(train_type, '#3b82f6'),
+                'route': []
+            })
         
-        <!-- Moving train -->
-        <div id='train-marker' style='
-            position: absolute;
-            left: 55px;
-            font-size: 40px;
-            z-index: 10;
-            transition: top 1s ease;
-            filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.8));
-        '>🚅</div>
+        return trains
+    
+    @staticmethod
+    def get_train_position(train_no):
+        """Get specific train's current position"""
+        trains = IndianRailwaysAPI.get_live_trains(limit=50)
+        for train in trains:
+            if train['train_no'] == train_no:
+                return train
+        return None
+
+# ========== SIDEBAR ==========
+
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/en/thumb/4/49/Indian_Railways_Logo.svg/1200px-Indian_Railways_Logo.svg.png", width=100)
+    st.title("🇮🇳 Indian Railways")
+    
+    st.markdown("---")
+    
+    # Search Train
+    st.subheader("🔍 Search Train")
+    search_type = st.radio("Search by:", ["Train Number", "Train Name", "Route"])
+    
+    if search_type == "Train Number":
+        train_no = st.text_input("Enter Train Number", "12673")
+        if st.button("Track Train"):
+            selected_train = IndianRailwaysAPI.get_train_position(train_no)
+            if selected_train:
+                st.session_state.selected_train = selected_train
+                st.success(f"Tracking {selected_train['name']}")
+            else:
+                st.error("Train not found!")
+    
+    elif search_type == "Train Name":
+        train_name = st.selectbox(
+            "Select Train",
+            ["CHERAN SF EXP", "SHATABDI EXP", "RAJDHANI EXP", "DECCAN EXPRESS", "MYSORE EXP"]
+        )
+    
+    else:
+        from_station = st.selectbox("From", list(IndianRailwaysAPI.STATIONS.keys()))
+        to_station = st.selectbox("To", list(IndianRailwaysAPI.STATIONS.keys()))
+    
+    st.markdown("---")
+    
+    # Filter Options
+    st.subheader("🎯 Filters")
+    train_types = st.multiselect(
+        "Train Types",
+        list(IR_COLORS.keys()),
+        default=['Superfast', 'Express', 'Rajdhani']
+    )
+    
+    speed_range = st.slider("Speed Range (km/h)", 0, 150, (40, 120))
+    
+    delay_filter = st.select_slider(
+        "Max Delay",
+        options=["On Time", "Up to 15 min", "Up to 30 min", "Up to 1 hr", "Any"]
+    )
+    
+    st.markdown("---")
+    
+    # Live Stats
+    st.subheader("📊 Live Statistics")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Active Trains", "2,850", "↗️ 12")
+    with col2:
+        st.metric("Avg Speed", "78 km/h", "↗️ 2.3%")
+    
+    st.metric("Punctuality", "82.5%", "↘️ 1.2%")
+    st.metric("Delayed Trains", "317", "↘️ 8")
+
+# ========== MAIN DASHBOARD ==========
+
+st.title("🚆 Indian Railways Live Train Tracker")
+st.markdown("Real-time tracking of trains across India with AI-powered insights")
+
+# Initialize session state
+if 'selected_train' not in st.session_state:
+    st.session_state.selected_train = None
+if 'last_update' not in st.session_state:
+    st.session_state.last_update = datetime.now()
+if 'auto_refresh' not in st.session_state:
+    st.session_state.auto_refresh = True
+
+# Control Panel
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    if st.button("🔄 Refresh Data", use_container_width=True):
+        st.rerun()
+with col2:
+    st.session_state.auto_refresh = st.toggle("Auto Refresh", value=True)
+with col3:
+    refresh_rate = st.selectbox("Update Rate", ["5 seconds", "10 seconds", "30 seconds", "1 minute"])
+with col4:
+    map_style = st.selectbox("Map Style", ["Satellite", "Terrain", "Street", "Dark"])
+
+# ========== LIVE TRAIN MAP ==========
+
+st.markdown("---")
+st.subheader("📍 Live Train Positions Across India")
+
+# Get live train data
+live_trains = IndianRailwaysAPI.get_live_trains(limit=100)
+
+# Create India map
+india_map = folium.Map(
+    location=[20.5937, 78.9629],
+    zoom_start=5,
+    tiles='CartoDB dark_matter' if map_style == "Dark" else 
+          'OpenStreetMap' if map_style == "Street" else
+          'Stamen Terrain' if map_style == "Terrain" else
+          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+)
+
+# Add Indian states boundary (simplified)
+india_bounds = [
+    [6.0, 68.0],  # Southwest (Kanyakumari)
+    [35.0, 97.0]   # Northeast (Arunachal)
+]
+
+# Add major cities
+for city, coords in IndianRailwaysAPI.STATIONS.items():
+    folium.CircleMarker(
+        location=coords,
+        radius=8,
+        popup=f"<b>{city}</b><br>Major Railway Station",
+        color='#3b82f6',
+        fill=True,
+        fill_color='#3b82f6',
+        fill_opacity=0.6
+    ).add_to(india_map)
+
+# Add live train markers
+for train in live_trains:
+    # Filter by selected criteria
+    if train['type'] not in train_types:
+        continue
+    if not (speed_range[0] <= train['speed'] <= speed_range[1]):
+        continue
+    if delay_filter != "Any":
+        max_delay = {'On Time': 0, 'Up to 15 min': 15, 'Up to 30 min': 30, 'Up to 1 hr': 60}[delay_filter]
+        if train['delay'] > max_delay:
+            continue
+    
+    # Calculate marker color based on delay
+    if train['delay'] > 30:
+        color = '#ef4444'  # Red for high delay
+    elif train['delay'] > 15:
+        color = '#f59e0b'  # Orange for medium delay
+    elif train['delay'] > 5:
+        color = '#fbbf24'  # Yellow for minor delay
+    else:
+        color = '#10b981'  # Green for on-time
+    
+    # Create custom train icon
+    icon_html = f"""
+    <div style='
+        background: {color};
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+        border: 3px solid white;
+        box-shadow: 0 0 10px {color};
+        cursor: pointer;
+        animation: pulse 2s infinite;
+    '>
+        🚆
+    </div>
     """
     
-    for i, station in enumerate(railway_data):
-        is_active = (i <= st.session_state.current_station)
-        is_current = (i == st.session_state.current_station)
-        
-        # Calculate position
-        top_pos = i * 120
-        
-        track_html += f"""
-        <div style='position: relative; margin-bottom: 120px;'>
-            <!-- Station dot -->
-            <div style='
-                position: absolute;
-                left: 62px;
-                top: {top_pos + 20}px;
-                width: 24px;
-                height: 24px;
-                background-color: {'#10b981' if is_active else '#64748b'};
-                border-radius: 50%;
-                border: 4px solid #0f172a;
-                z-index: 3;
-                box-shadow: 0 0 15px {'rgba(16, 185, 129, 0.5)' if is_active else 'none'};
-                transition: all 0.5s ease;
-            '></div>
-            
-            <!-- Station info card -->
-            <div style='
-                margin-left: 100px;
-                background: {'rgba(59, 130, 246, 0.1)' if is_current else 'rgba(255, 255, 255, 0.05)'};
-                padding: 15px;
-                border-radius: 10px;
-                border-left: 5px solid {'#ef4444' if is_current else ('#10b981' if is_active else '#64748b')};
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            '>
-                <div style='
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 8px;
-                '>
-                    <h3 style='
-                        margin: 0;
-                        color: {'#ef4444' if is_current else ('#ffffff' if is_active else '#94a3b8')};
-                        font-weight: 700;
-                    '>
-                        {station['name']}
-                        {'<span style="color: #ef4444; font-size: 14px; margin-left: 10px;">● LIVE</span>' if is_current else ''}
-                    </h3>
-                    <span style='
-                        background: {'#ef4444' if is_current else ('#10b981' if is_active else '#64748b')};
-                        color: white;
-                        padding: 4px 12px;
-                        border-radius: 20px;
-                        font-size: 12px;
-                        font-weight: 600;
-                    '>
-                        {station['pf']}
-                    </span>
-                </div>
-                
-                <div style='
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 10px;
-                    color: {'#cbd5e1' if is_active else '#64748b'};
-                '>
-                    <div>
-                        <div style='font-size: 11px; color: #94a3b8;'>ARRIVAL</div>
-                        <div style='font-size: 16px; font-weight: 600;'>{station['arr']}</div>
-                    </div>
-                    <div>
-                        <div style='font-size: 11px; color: #94a3b8;'>DEPARTURE</div>
-                        <div style='font-size: 16px; font-weight: 600;'>{station['dep']}</div>
-                    </div>
-                    <div>
-                        <div style='font-size: 11px; color: #94a3b8;'>DISTANCE</div>
-                        <div style='font-size: 16px; font-weight: 600;'>{station['dist']}</div>
-                    </div>
-                </div>
-                
-                {'<div style="margin-top: 10px; font-size: 13px; color: #f59e0b;">Delay: ' + station['delay'] + '</div>' if station['delay'] != "0 min" else ''}
-            </div>
-        </div>
-        """
+    # Calculate bearing for direction
+    bearing = random.randint(0, 360)
     
-    track_html += "</div>"
-    
-    # Add JavaScript for animation
-    track_html += """
+    # Create popup content
+    popup_html = f"""
+    <div style='font-family: Arial; max-width: 300px;'>
+        <h3 style='color: {color}; margin: 0 0 10px 0;'>🚅 {train['name']}</h3>
+        <p><b>Train No:</b> {train['train_no']}</p>
+        <p><b>Type:</b> {train['type']}</p>
+        <p><b>Current Speed:</b> {train['speed']} km/h</p>
+        <p><b>Status:</b> 
+            <span style='color: {color}; font-weight: bold;'>
+                {train['status']} {'(' + str(train['delay']) + ' min delay)' if train['delay'] > 0 else ''}
+            </span>
+        </p>
+        <p><b>From:</b> {train['source']}</p>
+        <p><b>To:</b> {train['destination']}</p>
+        <p><b>Current:</b> {train['current_station']}</p>
+        <p><b>Next:</b> {train['next_station']}</p>
+        <p><b>Last Update:</b> {train['last_update'].strftime('%H:%M:%S')}</p>
+        <button onclick="selectTrain('{train['train_no']}')" 
+                style='background: {color}; color: white; border: none; padding: 8px 16px; 
+                       border-radius: 5px; cursor: pointer; margin-top: 10px;'>
+            Track This Train
+        </button>
+    </div>
     <script>
-        function updateTrainPosition(currentStation) {
-            const progressLine = document.getElementById('progress-line');
-            const trainMarker = document.getElementById('train-marker');
-            
-            // Calculate positions (120px per station)
-            const progressHeight = currentStation * 120 + 40;
-            const trainTop = currentStation * 120 + 10;
-            
-            progressLine.style.height = progressHeight + 'px';
-            trainMarker.style.top = trainTop + 'px';
-        }
-        
-        // Initialize with current station
-        updateTrainPosition(""" + str(st.session_state.current_station) + """);
+        function selectTrain(trainNo) {{
+            window.parent.postMessage({{type: 'selectTrain', trainNo: trainNo}}, '*');
+        }}
     </script>
     """
     
-    components.html(track_html, height=700)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Add marker to map
+    icon = folium.DivIcon(html=icon_html)
+    folium.Marker(
+        location=[train['latitude'], train['longitude']],
+        popup=folium.Popup(popup_html, max_width=350),
+        tooltip=f"{train['name']} - {train['speed']} km/h",
+        icon=icon
+    ).add_to(india_map)
 
-with tab3:
-    # 3D Visualization using Plotly
-    st.subheader("🚆 3D Route Visualization")
-    
-    # Create 3D route data
-    x = np.linspace(0, 334, 100)
-    y = np.sin(x/50) * 20
-    z = np.cos(x/100) * 50
-    
-    fig = go.Figure(data=[
-        go.Scatter3d(
-            x=x, y=y, z=z,
-            mode='lines',
-            line=dict(width=8, color='#3b82f6'),
-            name='Track'
-        ),
-        go.Scatter3d(
-            x=[x[st.session_state.current_station * 20]],
-            y=[y[st.session_state.current_station * 20]],
-            z=[z[st.session_state.current_station * 20]],
-            mode='markers',
-            marker=dict(size=15, color='#ef4444'),
-            name='Train'
-        )
-    ])
-    
-    fig.update_layout(
-        scene=dict(
-            xaxis_title='Distance (km)',
-            yaxis_title='Lateral Position',
-            zaxis_title='Elevation',
-            bgcolor='rgba(0,0,0,0)',
-            camera=dict(
-                eye=dict(x=1.5, y=1.5, z=1.5)
-            )
-        ),
-        height=500,
-        margin=dict(l=0, r=0, t=0, b=0),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(color='white')
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+# Display map
+map_col, info_col = st.columns([2, 1])
 
-with tab4:
-    # Analytics Dashboard
-    col_anal1, col_anal2 = st.columns(2)
+with map_col:
+    # Display the map
+    folium_static(india_map, width=900, height=600)
     
-    with col_anal1:
-        st.subheader("📈 Performance Metrics")
-        
-        # Create sample data
-        metrics_data = pd.DataFrame({
-            'Time': pd.date_range('2024-01-01', periods=24, freq='H'),
-            'Speed': np.random.normal(80, 10, 24),
-            'Energy': np.random.normal(85, 5, 24),
-            'Safety': np.random.normal(95, 2, 24)
-        })
-        
-        st.line_chart(metrics_data.set_index('Time'))
-    
-    with col_anal2:
-        st.subheader("🎯 AI Decision Log")
-        
-        # Sample AI decisions
-        decisions = pd.DataFrame({
-            'Time': ['22:15', '22:30', '22:45', '23:00'],
-            'Action': ['Accelerate', 'Maintain', 'Decelerate', 'Maintain'],
-            'Reason': ['Clear track ahead', 'Approaching station', 'Weather alert', 'Optimal speed'],
-            'Reward': [+2.5, +1.0, -0.5, +1.5]
-        })
-        
-        st.dataframe(decisions, use_container_width=True)
-
-# 6. AI ANALYTICS PANEL
-st.markdown("---")
-st.subheader("🤖 AI Analytics Feed")
-
-col_ai1, col_ai2, col_ai3 = st.columns(3)
-
-with col_ai1:
+    # Legend
     st.markdown("""
-    <div style='
-        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
-    '>
-        <h4 style='color: white; margin-top: 0;'>🌤️ Weather Intelligence</h4>
-        <p style='color: #dbeafe; font-size: 14px;'>
-            <b>Current:</b> """ + weather + """<br>
-            <b>AI Action:</b> Safety gap adjusted to 28.5 km<br>
-            <b>Speed Limit:</b> 90 km/h (-10% for safety)
-        </p>
+    <div style='background: rgba(30, 41, 59, 0.8); padding: 10px; border-radius: 10px; margin-top: 10px;'>
+        <h4 style='margin: 0 0 10px 0;'>Map Legend</h4>
+        <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;'>
+            <div><span style='color: #10b981; font-size: 20px;'>●</span> On Time (≤5 min)</div>
+            <div><span style='color: #fbbf24; font-size: 20px;'>●</span> Minor Delay (6-15 min)</div>
+            <div><span style='color: #f59e0b; font-size: 20px;'>●</span> Medium Delay (16-30 min)</div>
+            <div><span style='color: #ef4444; font-size: 20px;'>●</span> High Delay (>30 min)</div>
+            <div><span style='color: #3b82f6; font-size: 20px;'>●</span> Railway Station</div>
+            <div><span style='color: #ffffff; font-size: 20px;'>🚆</span> Moving Train</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-with col_ai2:
-    st.markdown("""
-    <div style='
-        background: linear-gradient(135deg, #ea580c, #f97316);
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
-    '>
-        <h4 style='color: white; margin-top: 0;'>🔧 Predictive Maintenance</h4>
-        <p style='color: #ffedd5; font-size: 14px;'>
-            <b>Engine Health:</b> 98% ✅<br>
-            <b>Next Service:</b> 1,250 km remaining<br>
-            <b>Components:</b> All systems optimal
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+with info_col:
+    st.subheader("🚅 Live Trains Nearby")
+    
+    # Filter trains for info panel
+    filtered_trains = [t for t in live_trains if t['type'] in train_types and 
+                      speed_range[0] <= t['speed'] <= speed_range[1]]
+    
+    # Sort by delay
+    filtered_trains.sort(key=lambda x: x['delay'])
+    
+    for train in filtered_trains[:10]:
+        delay_color = '#10b981' if train['delay'] <= 5 else \
+                     '#fbbf24' if train['delay'] <= 15 else \
+                     '#f59e0b' if train['delay'] <= 30 else '#ef4444'
+        
+        st.markdown(f"""
+        <div class="live-train-card {'selected-train' if st.session_state.selected_train and st.session_state.selected_train['train_no'] == train['train_no'] else ''}" 
+             onclick="selectTrain('{train['train_no']}')" style="cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4 style="margin: 0; color: #38bdf8;">{train['name']}</h4>
+                    <p style="margin: 5px 0; color: #94a3b8; font-size: 12px;">
+                        {train['train_no']} • {train['type']}
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <span style="color: {delay_color}; font-weight: bold;">
+                        {train['delay']} min
+                    </span>
+                    <div style="font-size: 12px; color: #94a3b8;">
+                        {train['speed']} km/h
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 8px; font-size: 13px; color: #cbd5e1;">
+                📍 {train['current_station']} → {train['next_station']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-with col_ai3:
-    st.markdown("""
-    <div style='
-        background: linear-gradient(135deg, #047857, #10b981);
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
-    '>
-        <h4 style='color: white; margin-top: 0;'>⚡ Energy Optimization</h4>
-        <p style='color: #d1fae5; font-size: 14px;'>
-            <b>Fuel Saved:</b> 22% via AI Throttle<br>
-            <b>Regen Braking:</b> Active ✅<br>
-            <b>CO2 Reduced:</b> 450 kg/trip
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+# ========== SELECTED TRAIN DETAILS ==========
 
-# 7. SIMULATION CONTROLS
-st.markdown("---")
-st.subheader("🎮 Simulation Controls")
-
-col_control1, col_control2, col_control3, col_control4 = st.columns(4)
-
-with col_control1:
-    if st.button("🚀 Start AI Simulation", type="primary", use_container_width=True):
-        st.session_state.simulation_running = True
-        st.success("AI Simulation Started!")
-
-with col_control2:
-    if st.button("⏸️ Pause Simulation", use_container_width=True):
-        st.session_state.simulation_running = False
-        st.warning("Simulation Paused")
-
-with col_control3:
-    if st.button("🔁 Reset Simulation", use_container_width=True):
-        st.session_state.current_station = 0
-        st.session_state.simulation_running = False
-        st.info("Simulation Reset")
-
-with col_control4:
-    if st.button("📥 Export Data", use_container_width=True):
-        st.success("Data exported successfully!")
-
-# 8. REAL-TIME SIMULATION
-if st.session_state.simulation_running:
+if st.session_state.selected_train:
     st.markdown("---")
-    st.subheader("🔄 Live Simulation Progress")
+    st.subheader(f"📡 Detailed Tracking: {st.session_state.selected_train['name']}")
     
-    progress_bar = st.progress(0)
-    status_text = st.empty()
+    train = st.session_state.selected_train
     
-    # Simulation loop
-    for i in range(5):  # Simulate 5 stations
-        if not st.session_state.simulation_running:
-            break
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Current Speed", f"{train['speed']} km/h", 
+                 f"{'↗️ ' if train['speed'] > 80 else '↘️ '}{abs(train['speed'] - 80)}")
+    with col2:
+        st.metric("Delay", f"{train['delay']} minutes", 
+                 "↗️ On Time" if train['delay'] == 0 else f"↘️ +{train['delay']} min")
+    with col3:
+        st.metric("Distance Covered", f"{random.randint(150, 350)} km", "↗️ 85%")
+    with col4:
+        st.metric("Next Station ETA", 
+                 f"{(datetime.now() + timedelta(minutes=random.randint(15, 45))).strftime('%H:%M')}",
+                 f"In {random.randint(15, 45)} min")
+    
+    # Route Visualization
+    st.markdown("### 🗺️ Route Progress")
+    
+    if train['route']:
+        route_data = train['route']
+        current_idx = route_data.index(train['current_station']) if train['current_station'] in route_data else 0
+        
+        # Create progress bar
+        progress = (current_idx + 1) / len(route_data)
+        st.progress(progress)
+        
+        # Display stations
+        cols = st.columns(len(route_data))
+        for idx, station in enumerate(route_data):
+            with cols[idx]:
+                if idx < current_idx:
+                    status = "✅ Passed"
+                    color = "#10b981"
+                elif idx == current_idx:
+                    status = "📍 Current"
+                    color = "#3b82f6"
+                else:
+                    status = "⏳ Upcoming"
+                    color = "#94a3b8"
+                
+                st.markdown(f"""
+                <div style="text-align: center;">
+                    <div style="width: 30px; height: 30px; background: {color}; 
+                         border-radius: 50%; margin: 0 auto 10px; display: flex; 
+                         align-items: center; justify-content: center; color: white;">
+                        {idx + 1}
+                    </div>
+                    <div style="font-weight: bold; font-size: 12px;">{station[:15]}</div>
+                    <div style="font-size: 10px; color: {color};">{status}</div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Train Movement Simulation
+    st.markdown("### 🎮 Live Movement Simulation")
+    
+    # Create a simple animation showing train movement
+    simulation_html = f"""
+    <div style="background: rgba(30, 41, 59, 0.8); padding: 20px; border-radius: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h3 style="margin: 0; color: #38bdf8;">{train['name']}</h3>
+                <p style="margin: 5px 0; color: #94a3b8;">Simulating real-time movement</p>
+            </div>
+            <div style="font-size: 24px; animation: train-moving 2s linear infinite;">🚅</div>
+        </div>
+        
+        <div style="position: relative; height: 100px; background: rgba(59, 130, 246, 0.1); 
+             border-radius: 5px; overflow: hidden; margin: 20px 0;">
+            <!-- Track -->
+            <div style="position: absolute; top: 50%; left: 0; right: 0; height: 4px; 
+                 background: linear-gradient(90deg, #3b82f6, #8b5cf6); transform: translateY(-50%);"></div>
             
-        # Update station
-        st.session_state.current_station = i
-        progress = (i + 1) / 5
+            <!-- Moving Train -->
+            <div id="moving-train" style="position: absolute; top: 50%; left: {progress*90}%; 
+                 font-size: 40px; transform: translate(-50%, -50%); transition: left 2s ease;">
+                🚅
+            </div>
+            
+            <!-- Stations -->
+            <div style="position: absolute; top: 50%; left: 0%; transform: translate(-50%, -50%); 
+                 width: 20px; height: 20px; background: #10b981; border-radius: 50%; border: 3px solid white;"></div>
+            <div style="position: absolute; top: 50%; left: 30%; transform: translate(-50%, -50%); 
+                 width: 20px; height: 20px; background: #10b981; border-radius: 50%; border: 3px solid white;"></div>
+            <div style="position: absolute; top: 50%; left: 60%; transform: translate(-50%, -50%); 
+                 width: 20px; height: 20px; background: #3b82f6; border-radius: 50%; border: 3px solid white; 
+                 box-shadow: 0 0 15px #3b82f6;"></div>
+            <div style="position: absolute; top: 50%; left: 90%; transform: translate(-50%, -50%); 
+                 width: 20px; height: 20px; background: #94a3b8; border-radius: 50%; border: 3px solid white;"></div>
+            <div style="position: absolute; top: 50%; left: 100%; transform: translate(-50%, -50%); 
+                 width: 20px; height: 20px; background: #94a3b8; border-radius: 50%; border: 3px solid white;"></div>
+        </div>
         
-        # Update progress
-        progress_bar.progress(progress)
-        status_text.text(f"🚉 Arriving at {railway_data[i]['name']}...")
-        
-        # Add train data point
-        st.session_state.train_data.append({
-            'timestamp': datetime.now(),
-            'station': railway_data[i]['name'],
-            'speed': random.randint(75, 95),
-            'energy': random.randint(80, 95)
-        })
-        
-        # Wait for next step
-        time.sleep(2 / sim_speed)
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94a3b8;">
+            <div>{train['source']}</div>
+            <div>{train['current_station']}</div>
+            <div>{train['destination']}</div>
+        </div>
+    </div>
     
-    if st.session_state.current_station >= 4:
-        st.balloons()
-        st.success("🎉 Simulation Complete: Optimal Section Throughput Achieved!")
-        st.session_state.simulation_running = False
+    <style>
+        @keyframes train-moving {{
+            0% {{ transform: translateX(0) rotate(0deg); }}
+            25% {{ transform: translateX(5px) rotate(2deg); }}
+            50% {{ transform: translateX(0) rotate(0deg); }}
+            75% {{ transform: translateX(-5px) rotate(-2deg); }}
+            100% {{ transform: translateX(0) rotate(0deg); }}
+        }}
+    </style>
+    
+    <script>
+        // Animate train movement
+        let train = document.getElementById('moving-train');
+        let position = {progress * 90};
+        let direction = 1;
+        
+        setInterval(() => {{
+            position += direction * 0.5;
+            if (position > 95 || position < 5) direction *= -1;
+            train.style.left = position + '%';
+        }}, 100);
+    </script>
+    """
+    
+    components.html(simulation_html, height=200)
 
-# 9. FOOTER
+# ========== AI PREDICTIONS ==========
+
 st.markdown("---")
-footer = """
-<div style='
-    text-align: center;
-    padding: 20px;
-    color: #94a3b8;
-    font-size: 12px;
-'>
-    <p>🚆 AI Train Traffic Control System v2.0 | Powered by Deep Q-Learning | © 2024</p>
-    <p>Real-time GPS Tracking | Moving Block Signaling | Predictive Analytics</p>
+st.subheader("🤖 AI-Powered Predictions & Insights")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 20px; border-radius: 12px;">
+        <h4 style="color: white; margin-top: 0;">📈 Arrival Prediction</h4>
+        <p style="color: #dbeafe;">
+            <b>Accuracy:</b> 94.7% ✅<br>
+            <b>Next Station:</b> {random.choice(list(IndianRailwaysAPI.STATIONS.keys()))}<br>
+            <b>Predicted Arrival:</b> {datetime.now().strftime('%H:%M')}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #ea580c, #f97316); padding: 20px; border-radius: 12px;">
+        <h4 style="color: white; margin-top: 0;">⚠️ Delay Alert System</h4>
+        <p style="color: #ffedd5;">
+            <b>Current Risk:</b> Low ✅<br>
+            <b>Affected Trains:</b> 42<br>
+            <b>Avg Recovery:</b> 18.5 minutes
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #047857, #10b981); padding: 20px; border-radius: 12px;">
+        <h4 style="color: white; margin-top: 0;">⚡ Efficiency Score</h4>
+        <p style="color: #d1fae5;">
+            <b>Current Score:</b> 87/100 🏆<br>
+            <b>Fuel Saved:</b> 22%<br>
+            <b>Time Optimized:</b> 14.5 minutes
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ========== AUTO REFRESH ==========
+
+if st.session_state.auto_refresh:
+    refresh_seconds = {'5 seconds': 5, '10 seconds': 10, '30 seconds': 30, '1 minute': 60}[refresh_rate]
+    
+    if (datetime.now() - st.session_state.last_update).seconds >= refresh_seconds:
+        st.session_state.last_update = datetime.now()
+        st.rerun()
+
+# ========== FOOTER ==========
+
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; padding: 20px; color: #94a3b8; font-size: 12px;">
+    <p>🚆 Indian Railways Live Tracker v2.0 | Data updates every 30 seconds | © 2024</p>
+    <p>Note: This is a simulation. Real train positions may vary.</p>
 </div>
-"""
-st.markdown(footer, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
+
+# JavaScript for train selection
+st.markdown("""
+<script>
+    // Listen for train selection from map
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'selectTrain') {
+            // Store in Streamlit session state
+            Streamlit.setComponentValue({trainNo: event.data.trainNo});
+        }
+    });
+    
+    // Add click handlers to train cards
+    document.addEventListener('click', function(e) {
+        const card = e.target.closest('.live-train-card');
+        if (card) {
+            // Remove previous selection
+            document.querySelectorAll('.live-train-card').forEach(c => {
+                c.classList.remove('selected-train');
+            });
+            // Add selection to clicked card
+            card.classList.add('selected-train');
+        }
+    });
+</script>
+""", unsafe_allow_html=True)
