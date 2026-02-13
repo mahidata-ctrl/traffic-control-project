@@ -218,8 +218,8 @@ if st.button("🚦 Get AI Speed Recommendation"):
 
     # Predict action
     action, _ = model.predict(obs, deterministic=True)
-    # --- FIX: use .item() to safely extract scalar from numpy array ---
-    action = action.item()  # works for single-element arrays
+    # --- FIX 1: use .item() to safely extract scalar from numpy array ---
+    action = action.item()
 
     # Map action to speed change (same as environment)
     speed_change = {0: -5, 1: 0, 2: 5}[action]
@@ -247,13 +247,17 @@ if st.button("🚦 Get AI Speed Recommendation"):
     # Get updated distances
     new_front, new_back = get_front_back(st.session_state.trains, st.session_state.selected_idx)
 
+    # --- FIX 2: handle None values for front/back distances ---
+    front_text = f"{new_front:.2f} km" if new_front is not None else "No train"
+    back_text = f"{new_back:.2f} km" if new_back is not None else "No train"
+
     # Display notification
     st.success("### 📢 Driver Advisory")
     st.info(
         f"**Train {train['number']}**\n\n"
         f"🚄 **Recommended Speed:** {new_speed:.0f} km/h\n"
-        f"🔹 Train ahead at {new_front:.2f} km\n"
-        f"🔸 Train behind at {new_back:.2f} km"
+        f"🔹 Train ahead at {front_text}\n"
+        f"🔸 Train behind at {back_text}"
     )
 
     # Rerun to update metrics and plot
