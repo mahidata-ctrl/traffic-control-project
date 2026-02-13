@@ -45,82 +45,118 @@ def generate_train_data():
     trains.sort(key=lambda x: x["position_km"])
     return trains
 
-# -------------------- AI Environment for Training --------------------
-class SingleTrainControlEnv(gym.Env):
+# -------------------- Realistic Train Environment --------------------
+class RealisticTrainEnv(gym.Env):
     """
-    Environment for controlling one train (ego) with a lead train ahead and a follow train behind.
-    State: [ego_speed, front_distance, back_distance] normalized.
-    Action: 0 = decelerate, 1 = maintain, 2 = accelerate.
-    Reward: encourage safe distance (1.5-3 km) and high speed.
+    Realistic single-train control with acceleration limits and train length.
+    The ego train is controlled by the agent; lead and follow trains are simulated with random actions.
     """
-    def __init__(self, max_speed=100, min_speed=30, time_step=1/3600):
+    def __init__(self, max_speed_kmh=100, min_speed_kmh=30, train_length_km=0.2, dt=1.0):
         super().__init__()
-        self.max_speed = max_speed
-        self.min_speed = min_speed
-        self.time_step = time_step
+        self.max_speed_kmh = max_speed_kmh
+        self.min_speed_kmh = min_speed_kmh
+        self.train_length_km = train_length_km  # 200 m
+        self.dt = dt / 3600.0  # convert seconds to hours for position updates
 
-        self.action_space = spaces.Discrete(3)
+        # Acceleration/deceleration rates (km/h per second)
+        self.accel_rate = 1.8   # 0.5 m/s² ≈ 1.8 km/h per second
+        self.brake_rate = -3.6   # -1.0 m/s² ≈ -3.6 km/h per second
+
+        self.action_space = spaces.Discrete(3)  # 0: brake, 1: coast, 2: accel
+        # Observation: [norm_speed, norm_front_dist, norm_back_dist]
         high = np.array([1.0, 1.0, 1.0], dtype=np.float32)
         self.observation_space = spaces.Box(low=0, high=high, dtype=np.float32)
+
         self.reset()
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        # Positions (km) – lead, ego, follow
         self.lead_pos = 15.0
         self.ego_pos = 10.0
         self.follow_pos = 5.0
-        self.ego_speed = 60.0
+        # Speeds (km/h)
         self.lead_speed = 65.0
+        self.ego_speed = 60.0
         self.follow_speed = 55.0
         return self._get_obs(), {}
 
     def _get_obs(self):
-        speed_norm = (self.ego_speed - self.min_speed) / (self.max_speed - self.min_speed)
-        front_dist = max(0, self.lead_pos - self.ego_pos)
-        back_dist = max(0, self.ego_pos - self.follow_pos)
+        speed_norm = (self.ego_speed - self.min_speed_kmh) / (self.max_speed_kmh - self.min_speed_kmh)
+        # Distance from front of ego to rear of lead train (or vice versa)
+        front_dist = self.lead_pos - self.ego_pos - self.train_length_km
+        back_dist = self.ego_pos - self.follow_pos - self.train_length_km
+        # Clip negative distances (shouldn't happen, but safety)
+        front_dist = max(0, front_dist)
+        back_dist = max(0, back_dist)
+        # Normalize distance (max expected ~10 km)
         front_norm = min(front_dist / 10.0, 1.0)
         back_norm = min(back_dist / 10.0, 1.0)
         return np.array([speed_norm, front_norm, back_norm], dtype=np.float32)
 
     def step(self, action):
-        if action == 0:
-            self.ego_speed -= 5
-        elif action == 2:
-            self.ego_speed += 5
-        self.ego_speed = np.clip(self.ego_speed, self.min_speed, self.max_speed)
+        # --- Ego train speed update based on action ---
+        if action == 0:  # brake
+            self.ego_speed += self.brake_rate * self.dt * 3600  # convert rate to per dt
+        elif action == 2:  # accel
+            self.ego_speed += self.accel_rate * self.dt * 3600
+        # else action 1: coast – no change
+        self.ego_speed = np.clip(self.ego_speed, self.min_speed_kmh, self.max_speed_kmh)
 
-        self.lead_speed += np.random.randint(-2, 3)
-        self.lead_speed = np.clip(self.lead_speed, self.min_speed, self.max_speed)
-        self.follow_speed += np.random.randint(-2, 3)
-        self.follow_speed = np.clip(self.follow_speed, self.min_speed, self.max_speed)
+        # --- Lead and follow trains: simple random acceleration ---
+        # Lead train randomly accelerates/brakes
+        lead_action = np.random.choice([-1, 0, 1], p=[0.2, 0.6, 0.2])
+        if lead_action == -1:
+            self.lead_speed += self.brake_rate * self.dt * 3600
+        elif lead_action == 1:
+            self.lead_speed += self.accel_rate * self.dt * 3600
+        self.lead_speed = np.clip(self.lead_speed, self.min_speed_kmh, self.max_speed_kmh)
 
-        self.lead_pos += self.lead_speed * self.time_step
-        self.ego_pos += self.ego_speed * self.time_step
-        self.follow_pos += self.follow_speed * self.time_step
+        # Follow train similarly
+        follow_action = np.random.choice([-1, 0, 1], p=[0.2, 0.6, 0.2])
+        if follow_action == -1:
+            self.follow_speed += self.brake_rate * self.dt * 3600
+        elif follow_action == 1:
+            self.follow_speed += self.accel_rate * self.dt * 3600
+        self.follow_speed = np.clip(self.follow_speed, self.min_speed_kmh, self.max_speed_kmh)
 
-        self.lead_pos = min(self.lead_pos, 20.0)
-        self.ego_pos = min(self.ego_pos, 20.0)
-        self.follow_pos = min(self.follow_pos, 20.0)
+        # --- Update positions ---
+        self.lead_pos += self.lead_speed * self.dt
+        self.ego_pos += self.ego_speed * self.dt
+        self.follow_pos += self.follow_speed * self.dt
 
-        front_dist = self.lead_pos - self.ego_pos
-        back_dist = self.ego_pos - self.follow_pos
+        # Keep within track bounds (0-20 km)
+        self.lead_pos = np.clip(self.lead_pos, 0, 20)
+        self.ego_pos = np.clip(self.ego_pos, 0, 20)
+        self.follow_pos = np.clip(self.follow_pos, 0, 20)
+
+        # --- Compute reward ---
+        front_dist = self.lead_pos - self.ego_pos - self.train_length_km
+        back_dist = self.ego_pos - self.follow_pos - self.train_length_km
+
         reward = 0
 
+        # Safety: very close front (including train length)
         if front_dist < 0.5:
             reward -= 10
-        elif front_dist < 1.5:
-            reward -= 2
-        elif 1.5 <= front_dist <= 3.0:
-            reward += 5
+        elif front_dist < 1.0:
+            reward -= 5
+        elif 1.0 <= front_dist <= 2.5:
+            reward += 5   # ideal headway
         elif front_dist > 5.0:
-            reward -= 1
+            reward -= 2   # too far, capacity lost
 
+        # Rear safety
         if back_dist < 0.5:
             reward -= 5
 
-        reward += 0.05 * self.ego_speed
-        if action == 0 or action == 2:
-            reward -= 0.2
+        # Encourage higher speed (normalized)
+        speed_factor = (self.ego_speed - self.min_speed_kmh) / (self.max_speed_kmh - self.min_speed_kmh)
+        reward += 2 * speed_factor
+
+        # Small penalty for harsh actions to promote smooth driving
+        if action != 1:
+            reward -= 0.5
 
         done = False
         truncated = False
@@ -129,15 +165,16 @@ class SingleTrainControlEnv(gym.Env):
 # -------------------- Train or Load DQN Model --------------------
 @st.cache_resource
 def load_or_train_model():
-    model_path = "dqn_train_control.zip"
+    model_path = "dqn_realistic.zip"
     if os.path.exists(model_path):
         model = DQN.load(model_path)
     else:
-        env = DummyVecEnv([lambda: SingleTrainControlEnv()])
+        # Create environment and train a quick model
+        env = DummyVecEnv([lambda: RealisticTrainEnv()])
         model = DQN("MlpPolicy", env, verbose=0, learning_rate=0.001, buffer_size=10000,
                     learning_starts=100, batch_size=32, tau=0.1, gamma=0.99,
                     train_freq=4, gradient_steps=1)
-        model.learn(total_timesteps=5000)
+        model.learn(total_timesteps=8000)  # a bit more for complex dynamics
         model.save(model_path)
     return model
 
@@ -146,14 +183,15 @@ def get_front_back(trains, selected_index):
     front_dist = None
     back_dist = None
     if selected_index < len(trains) - 1:
-        front_dist = trains[selected_index + 1]["position_km"] - trains[selected_index]["position_km"]
+        # Distance between front of selected and rear of next train
+        front_dist = trains[selected_index + 1]["position_km"] - trains[selected_index]["position_km"] - 0.2
     if selected_index > 0:
-        back_dist = trains[selected_index]["position_km"] - trains[selected_index - 1]["position_km"]
+        back_dist = trains[selected_index]["position_km"] - trains[selected_index - 1]["position_km"] - 0.2
     return front_dist, back_dist
 
 # -------------------- Streamlit App --------------------
-st.set_page_config(page_title="AI Train Control - Indian Railways", layout="wide")
-st.title("🚉 Maximizing Section Throughput with AI (Indian Railways)")
+st.set_page_config(page_title="AI Train Control - Realistic", layout="wide")
+st.title("🚉 Realistic AI Train Control (Indian Railways)")
 st.markdown("---")
 
 if "trains" not in st.session_state:
@@ -186,7 +224,7 @@ fig, ax = plt.subplots(figsize=(10, 2))
 # Draw track line
 ax.axhline(y=0, color='gray', linestyle='-', linewidth=2)
 
-# Plot all trains as small light dots
+# Plot all trains as small light dots (positions are front of train)
 positions = [t['position_km'] for t in st.session_state.trains]
 ax.scatter(positions, [0]*len(positions), c='lightblue', s=30, alpha=0.6, zorder=1)
 
@@ -218,6 +256,7 @@ st.pyplot(fig)
 if st.button("🚦 Get AI Speed Recommendation"):
     min_speed, max_speed = 30, 100
     speed_norm = (train['speed_kmh'] - min_speed) / (max_speed - min_speed)
+    # Use front/back distances (already include train length)
     front_norm = min((front_dist if front_dist else 10) / 10.0, 1.0)
     back_norm = min((back_dist if back_dist else 10) / 10.0, 1.0)
     obs = np.array([[speed_norm, front_norm, back_norm]], dtype=np.float32)
@@ -225,18 +264,25 @@ if st.button("🚦 Get AI Speed Recommendation"):
     action, _ = model.predict(obs, deterministic=True)
     action = action.item()
 
-    speed_change = {0: -5, 1: 0, 2: 5}[action]
-    new_speed = train['speed_kmh'] + speed_change
-    new_speed = np.clip(new_speed, min_speed, max_speed)
+    # Apply action to the selected train in the mock data
+    # For demo, we simulate one step with realistic dynamics
+    # Convert action to speed change (simplified for demo)
+    if action == 0:  # brake
+        train['speed_kmh'] -= 3.6  # reduce by 3.6 km/h (1 m/s² for 1 sec)
+    elif action == 2:  # accel
+        train['speed_kmh'] += 1.8  # increase by 1.8 km/h
+    # else coast: no change
 
-    time_step = 1/3600
+    train['speed_kmh'] = np.clip(train['speed_kmh'], min_speed, max_speed)
+
+    # Update all train positions (simple linear movement)
+    time_step = 1/3600  # 1 second in hours
     for t in st.session_state.trains:
         t['position_km'] += t['speed_kmh'] * time_step
-        t['position_km'] = min(t['position_km'], 20.0)
+        t['position_km'] = np.clip(t['position_km'], 0, 20)
 
-    st.session_state.trains[selected_idx]['speed_kmh'] = new_speed
+    # Re-sort and find new index
     st.session_state.trains.sort(key=lambda x: x['position_km'])
-
     for i, t in enumerate(st.session_state.trains):
         if t['number'] == train['number']:
             st.session_state.selected_idx = i
@@ -250,10 +296,11 @@ if st.button("🚦 Get AI Speed Recommendation"):
     st.success("### 📢 Driver Advisory")
     st.info(
         f"**Train {train['number']} - {train['name']}**\n\n"
-        f"🚄 **Recommended Speed:** {new_speed:.0f} km/h\n"
+        f"🚄 **Recommended Speed:** {train['speed_kmh']:.0f} km/h\n"
         f"🔹 Train ahead at {front_text}\n"
-        f"🔸 Train behind at {back_text}"
+        f"🔸 Train behind at {back_text}\n\n"
+        f"*(Action: {'Brake' if action==0 else 'Coast' if action==1 else 'Accelerate'})*"
     )
 
 st.markdown("---")
-st.caption("AI model trained to maintain 1.5–3 km headway while maximizing speed. Notifications help drivers optimize throughput.")
+st.caption("Realistic dynamics: acceleration 1.8 km/h/s, braking 3.6 km/h/s, train length 200m.")
