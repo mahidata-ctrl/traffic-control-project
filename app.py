@@ -33,11 +33,6 @@ class RailEnv(gym.Env):
 st.set_page_config(page_title="AI Train Control", layout="wide")
 st.title("🚉 Maximizing Section Throughput Using AI-Powered Precise Train Traffic Control")
 st.markdown("---")
-
-# Project Details
-st.sidebar.header("Project Info")
-st.sidebar.write("**Name:** Mahitha")
-st.sidebar.write("**Degree:** B.Tech AI & DS")
 st.sidebar.write("**Focus:** Throughput Optimization")
 
 # Simulation Logic
@@ -81,4 +76,3 @@ if st.button('Run AI Control Simulation'):
     st.line_chart(chart_data.set_index('Time (min)'))
 
 st.markdown("---")
-st.write("© 2026 Mahitha - Final Year Engineering Project")
