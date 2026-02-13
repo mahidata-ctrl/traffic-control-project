@@ -9,20 +9,41 @@ from stable_baselines3 import DQN
 from stable_baselines3.common.vec_env import DummyVecEnv
 import os
 
-# -------------------- Mock Indian Train Data --------------------
+# -------------------- Extended Indian Train Data --------------------
 def generate_train_data():
-    """Return a list of trains with realistic Indian train names/numbers."""
-    trains = [
-        {"number": "12301", "name": "Howrah Rajdhani", "base_speed": 80},
-        {"number": "12627", "name": "Karnataka Express", "base_speed": 75},
-        {"number": "12951", "name": "Mumbai Rajdhani", "base_speed": 85},
-        {"number": "12431", "name": "Thiruvananthapuram Rajdhani", "base_speed": 80},
-        {"number": "12295", "name": "Sanghamitra Express", "base_speed": 70},
-        {"number": "12801", "name": "Puri Express", "base_speed": 65},
-        {"number": "12649", "name": "Sampark Kranti", "base_speed": 78},
-        {"number": "12953", "name": "August Kranti Rajdhani", "base_speed": 82},
+    """Return a list of 30 realistic Indian trains with random positions/speeds."""
+    # Realistic train names (mix of popular express, mail, superfast, rajdhani, etc.)
+    train_names = [
+        "Mumbai Rajdhani", "Howrah Rajdhani", "Delhi Rajdhani", "Chennai Rajdhani",
+        "Bengaluru Rajdhani", "Thiruvananthapuram Rajdhani", "Ahmedabad Rajdhani",
+        "Sealdah Rajdhani", "Ranchi Rajdhani", "Bhubaneswar Rajdhani",
+        "Karnataka Express", "Kerala Express", "Andhra Pradesh Express",
+        "Tamil Nadu Express", "Goa Express", "Punjab Mail", "Grand Trunk Express",
+        "Coromandel Express", "Konark Express", "Shatabdi Express",
+        "Duronto Express", "Garib Rath", "Humsafar Express",
+        "Lokmanya Tilak Terminus Express", "Prayagraj Express", "Ganga Kaveri Express",
+        "Sanghamitra Express", "Mysuru Express", "Coimbatore Express", "Madurai Express"
     ]
-    # Assign random positions along a 20 km section (0 to 20 km)
+    # Generate unique train numbers (typical Indian pattern: 1xxxx, 2xxxx, 12xxx, 22xxx)
+    base_numbers = [11001, 12301, 12627, 12951, 12431, 12295, 12801, 12649, 12953,
+                    12426, 12577, 12615, 12723, 12839, 12646, 11013, 12622, 12835,
+                    12609, 12002, 12245, 12559, 12741, 11019, 12427, 12658, 12213,
+                    12614, 12675, 12641]
+    # Ensure we have exactly 30 numbers
+    numbers = base_numbers[:30]
+    # Base speeds (km/h) – mix of fast and slower trains
+    base_speeds = [80, 75, 85, 80, 70, 65, 78, 82, 77, 72,
+                   68, 73, 79, 81, 69, 66, 74, 76, 71, 67,
+                   84, 79, 73, 77, 70, 68, 75, 72, 80, 78]
+    # Build list of trains
+    trains = []
+    for i in range(30):
+        trains.append({
+            "number": str(numbers[i]),
+            "name": train_names[i],
+            "base_speed": base_speeds[i]
+        })
+    # Assign random positions along 20 km section (0 to 20 km)
     np.random.seed(42)  # for reproducibility
     positions = np.random.uniform(0, 20, size=len(trains))
     speeds = [t["base_speed"] + np.random.randint(-5, 6) for t in trains]
@@ -199,7 +220,7 @@ y = [0] * len(st.session_state.trains)
 colors = ['red' if i == selected_idx else 'blue' for i in range(len(st.session_state.trains))]
 ax.scatter([t['position_km'] for t in st.session_state.trains], y, c=colors, s=100)
 for i, t in enumerate(st.session_state.trains):
-    ax.text(t['position_km'], 0.1, t['number'], ha='center', fontsize=8)
+    ax.text(t['position_km'], 0.1, t['number'], ha='center', fontsize=8, rotation=45)
 ax.set_xlim(0, 20)
 ax.set_ylim(-0.5, 0.5)
 ax.set_yticks([])
@@ -253,14 +274,11 @@ if st.button("🚦 Get AI Speed Recommendation"):
     # Display notification
     st.success("### 📢 Driver Advisory")
     st.info(
-        f"**Train {train['number']}**\n\n"
+        f"**Train {train['number']} - {train['name']}**\n\n"
         f"🚄 **Recommended Speed:** {new_speed:.0f} km/h\n"
         f"🔹 Train ahead at {front_text}\n"
         f"🔸 Train behind at {back_text}"
     )
-
-    # Removed st.rerun() – now the advisory will stay visible
-    # The updated state will be shown when Streamlit reruns automatically
 
 st.markdown("---")
 st.caption("AI model trained to maintain 1.5–3 km headway while maximizing speed. Notifications help drivers optimize throughput.")
