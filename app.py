@@ -218,7 +218,8 @@ if st.button("🚦 Get AI Speed Recommendation"):
 
     # Predict action
     action, _ = model.predict(obs, deterministic=True)
-    action = int(action)
+    # --- FIX: use .item() to safely extract scalar from numpy array ---
+    action = action.item()  # works for single-element arrays
 
     # Map action to speed change (same as environment)
     speed_change = {0: -5, 1: 0, 2: 5}[action]
