@@ -8,13 +8,13 @@ from stable_baselines3 import DQN
 from stable_baselines3.common.vec_env import DummyVecEnv
 import os
 
-# -------------------- Generate 100+ Realistic Indian Trains --------------------
-def generate_train_data():
+# -------------------- Generate 1000+ Realistic Indian Trains --------------------
+def generate_train_data(num_trains=1050):
     """
-    Generate a list of 100+ realistic Indian trains with numbers and names.
+    Generate a list of realistic Indian trains with numbers and names.
     No external files needed – all data is embedded.
     """
-    # Base station/city names for train names
+    # Extended list of Indian cities/stations (100+ cities)
     cities = [
         "Mumbai", "Delhi", "Kolkata", "Chennai", "Bengaluru", "Hyderabad", "Ahmedabad",
         "Pune", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Bhopal", "Visakhapatnam",
@@ -22,7 +22,34 @@ def generate_train_data():
         "Varanasi", "Srinagar", "Aurangabad", "Dhanbad", "Amritsar", "Allahabad", "Ranchi",
         "Howrah", "Jabalpur", "Gwalior", "Vijayawada", "Jodhpur", "Madurai", "Raipur",
         "Kota", "Chandigarh", "Guwahati", "Solapur", "Hubli", "Mysore", "Tiruchirappalli",
-        "Bareilly", "Aligarh", "Moradabad", "Bhubaneswar", "Coimbatore", "Kozhikode"
+        "Bareilly", "Aligarh", "Moradabad", "Bhubaneswar", "Coimbatore", "Kozhikode",
+        "Thiruvananthapuram", "Mangalore", "Tirupati", "Warangal", "Guntur", "Belgaum",
+        "Udaipur", "Ajmer", "Jammu", "Dehradun", "Shimla", "Panaji", "Pondicherry",
+        "Kochi", "Salem", "Tuticorin", "Nellore", "Kurnool", "Kakinada", "Rajahmundry",
+        "Bhavnagar", "Jamnagar", "Gandhinagar", "Siliguri", "Asansol", "Durgapur",
+        "Bokaro", "Rourkela", "Sambalpur", "Jhansi", "Mathura", "Alwar",
+        "Bikaner", "Jaisalmer", "Mount Abu", "Nanded", "Latur", "Osmanabad", "Kolhapur",
+        "Sangli", "Ratnagiri", "Panvel", "Thane", "Kalyan", "Virar", "Vapi", "Valsad",
+        "Surat", "Bharuch", "Anand", "Nadiad", "Godhra", "Dahod", "Mandsaur", "Neemuch",
+        "Chittorgarh", "Bhilwara", "Tonk", "Sikar", "Jhunjhunu", "Hanumangarh", "Ganganagar",
+        "Firozpur", "Pathankot", "Hoshiarpur", "Kapurthala", "Jalandhar", "Phagwara",
+        "Khanna", "Sirhind", "Rajpura", "Patiala", "Sangrur", "Barnala",
+        "Bathinda", "Moga", "Fazilka", "Abohar", "Malout", "Giddarbaha", "Muktsar",
+        "Faridkot", "Ferozepur", "Zira", "Makhu", "Talwandi Bhai", "Mullanpur",
+        "Doraha", "Sahnewal", "Halwara", "Raikot", "Jagraon", "Nakodar", "Phillaur",
+        "Nurmahal", "Gorakhpur", "Gonda", "Balrampur", "Shravasti", "Bahraich",
+        "Lakhimpur", "Kheri", "Sitapur", "Hardoi", "Unnao", "Raebareli", "Pratapgarh",
+        "Sultanpur", "Faizabad", "Ambedkar Nagar", "Azamgarh", "Mau", "Ballia",
+        "Ghazipur", "Chandauli", "Mirzapur", "Sonbhadra", "Sant Kabir Nagar",
+        "Maharajganj", "Kushinagar", "Deoria", "Padrauna", "Kasia", "Basti",
+        "Siddharthnagar", "Sant Ravidas Nagar", "Bhadohi", "Jaunpur", "Barabanki",
+        "Ayodhya", "Amethi", "Rae Bareli", "Fatehpur", "Kaushambi", "Allahabad",
+        "Pilibhit", "Shahjahanpur", "Badaun", "Bareilly", "Rampur", "Moradabad",
+        "Sambhal", "Amroha", "Jyotiba Phule Nagar", "Bulandshahr", "Aligarh",
+        "Hathras", "Mathura", "Agra", "Firozabad", "Etah", "Mainpuri", "Etawah",
+        "Auraiya", "Kannauj", "Farrukhabad", "Kanpur", "Kanpur Dehat", "Lucknow",
+        "Unnao", "Raebareli", "Pratapgarh", "Sultanpur", "Faizabad", "Ambedkar Nagar",
+        "Azamgarh", "Mau", "Ballia", "Ghazipur", "Chandauli", "Mirzapur", "Sonbhadra"
     ]
     
     # Train types and their typical speed ranges
@@ -35,14 +62,23 @@ def generate_train_data():
         ("Superfast Express", 70, 85),
         ("Express", 60, 75),
         ("Mail", 55, 70),
-        ("Passenger", 40, 55)
+        ("Passenger", 40, 55),
+        ("Jan Shatabdi", 65, 75),
+        ("Intercity Express", 60, 70),
+        ("Antyodaya Express", 70, 80),
+        ("Tejas Express", 90, 100),
+        ("Uday Express", 80, 90),
+        ("Mahamana Express", 75, 85),
+        ("Kavi Guru Express", 70, 80),
+        ("Vivek Express", 65, 75),
+        ("Yuva Express", 75, 85)
     ]
     
     trains = []
-    train_counter = 0
+    used_numbers = set()
     
-    # Generate 100+ trains by combining cities and types
-    for i in range(120):  # Generate 120 trains (a bit more than 100)
+    # Keep generating until we have enough trains
+    while len(trains) < num_trains:
         # Pick random city pair (or single city) for name
         city1 = np.random.choice(cities)
         city2 = np.random.choice(cities)
@@ -50,21 +86,27 @@ def generate_train_data():
             city2 = np.random.choice(cities)
         
         # Random train type
-        type_name, speed_min, speed_max = train_types[np.random.randint(len(train_types))]
+        type_idx = np.random.randint(len(train_types))
+        type_name, speed_min, speed_max = train_types[type_idx]
         
         # Construct name
-        if np.random.random() > 0.5:
+        name_style = np.random.random()
+        if name_style < 0.4:
             name = f"{city1} {city2} {type_name}"
-        else:
+        elif name_style < 0.7:
             name = f"{city1} {type_name}"
+        else:
+            name = f"{city1} - {city2} {type_name}"
         
         # Generate unique train number (Indian style: 1xxxx, 2xxxx)
+        # First digit: 1 or 2, rest random
         base = np.random.choice([1, 2]) * 10000
         number = base + np.random.randint(1001, 9999)
         
-        # Ensure uniqueness by incrementing if duplicate (simple loop)
-        while any(t['number'] == str(number) for t in trains):
-            number += 1
+        # Ensure uniqueness
+        while number in used_numbers:
+            number = base + np.random.randint(1001, 9999)
+        used_numbers.add(number)
         
         # Base speed
         base_speed = np.random.uniform(speed_min, speed_max)
@@ -74,13 +116,9 @@ def generate_train_data():
             "name": name,
             "base_speed": round(base_speed, 1)
         })
-        
-        train_counter += 1
-        if train_counter >= 110:  # Stop at 110 trains
-            break
     
     # Assign random positions along 20 km section
-    np.random.seed(42)
+    np.random.seed(42)  # for reproducibility
     positions = np.random.uniform(0, 20, size=len(trains))
     speeds = [t["base_speed"] + np.random.randint(-5, 6) for t in trains]
     for i, t in enumerate(trains):
@@ -224,8 +262,9 @@ st.markdown("---")
 
 # Initialize session state for train data
 if "trains" not in st.session_state:
-    st.session_state.trains = generate_train_data()
-    st.session_state.selected_idx = 0  # default
+    with st.spinner("Generating 1000+ Indian trains..."):
+        st.session_state.trains = generate_train_data(1050)  # generate 1050 trains
+    st.session_state.selected_idx = 0
 
 # Load AI model
 model = load_or_train_model()
@@ -256,31 +295,31 @@ fig, ax = plt.subplots(figsize=(12, 2))
 # Draw track line
 ax.axhline(y=0, color='gray', linestyle='-', linewidth=2)
 
-# Plot all trains as small light dots
+# Plot all trains as small light dots (alpha low to avoid clutter)
 positions = [t['position_km'] for t in st.session_state.trains]
-ax.scatter(positions, [0]*len(positions), c='lightblue', s=30, alpha=0.6, zorder=1)
+ax.scatter(positions, [0]*len(positions), c='lightblue', s=20, alpha=0.4, zorder=1)
 
 # Highlight selected train in red
-ax.scatter(train['position_km'], 0, c='red', s=100, zorder=2, edgecolors='darkred', linewidth=2)
+ax.scatter(train['position_km'], 0, c='red', s=120, zorder=3, edgecolors='darkred', linewidth=2)
 ax.text(train['position_km'], 0.05, train['number'], ha='center', fontsize=9, fontweight='bold')
 
 # Annotate front train if exists
 if front_dist is not None and selected_idx < len(st.session_state.trains)-1:
     front_train = st.session_state.trains[selected_idx+1]
-    ax.scatter(front_train['position_km'], 0, c='orange', s=70, zorder=2)
+    ax.scatter(front_train['position_km'], 0, c='orange', s=80, zorder=2)
     ax.text(front_train['position_km'], -0.08, front_train['number'], ha='center', fontsize=8, color='orange')
 
 # Annotate back train if exists
 if back_dist is not None and selected_idx > 0:
     back_train = st.session_state.trains[selected_idx-1]
-    ax.scatter(back_train['position_km'], 0, c='orange', s=70, zorder=2)
+    ax.scatter(back_train['position_km'], 0, c='orange', s=80, zorder=2)
     ax.text(back_train['position_km'], -0.08, back_train['number'], ha='center', fontsize=8, color='orange')
 
 ax.set_xlim(0, 20)
 ax.set_ylim(-0.2, 0.2)
 ax.set_yticks([])
 ax.set_xlabel("Position (km)")
-ax.set_title("Train Positions (Selected in Red, Neighbors in Orange)")
+ax.set_title(f"Train Positions ({len(st.session_state.trains)} trains on track)")
 
 st.pyplot(fig)
 
@@ -335,5 +374,8 @@ if st.button("🚦 Get AI Speed Recommendation"):
         f"🔸 Train behind at {back_text}"
     )
 
+    # Force a rerun to update metrics and plot
+    st.rerun()
+
 st.markdown("---")
-st.caption("AI model trained to maintain 1.5–3 km headway while maximizing speed. Notifications help drivers optimize throughput.")
+st.caption(f"AI model trained to maintain 1.5–3 km headway. Currently {len(st.session_state.trains)} trains on the track.")
