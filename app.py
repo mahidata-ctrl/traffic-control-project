@@ -218,8 +218,7 @@ if st.button("🚦 Get AI Speed Recommendation"):
 
     # Predict action
     action, _ = model.predict(obs, deterministic=True)
-    # --- FIX 1: use .item() to safely extract scalar from numpy array ---
-    action = action.item()
+    action = action.item()  # safe extraction
 
     # Map action to speed change (same as environment)
     speed_change = {0: -5, 1: 0, 2: 5}[action]
@@ -247,7 +246,7 @@ if st.button("🚦 Get AI Speed Recommendation"):
     # Get updated distances
     new_front, new_back = get_front_back(st.session_state.trains, st.session_state.selected_idx)
 
-    # --- FIX 2: handle None values for front/back distances ---
+    # Handle None values for front/back distances
     front_text = f"{new_front:.2f} km" if new_front is not None else "No train"
     back_text = f"{new_back:.2f} km" if new_back is not None else "No train"
 
@@ -260,8 +259,8 @@ if st.button("🚦 Get AI Speed Recommendation"):
         f"🔸 Train behind at {back_text}"
     )
 
-    # Rerun to update metrics and plot
-    st.rerun()
+    # Removed st.rerun() – now the advisory will stay visible
+    # The updated state will be shown when Streamlit reruns automatically
 
 st.markdown("---")
 st.caption("AI model trained to maintain 1.5–3 km headway while maximizing speed. Notifications help drivers optimize throughput.")
