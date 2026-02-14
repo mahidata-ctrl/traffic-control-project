@@ -7,287 +7,333 @@ from gymnasium import spaces
 from stable_baselines3 import DQN
 from stable_baselines3.common.vec_env import DummyVecEnv
 import os
-import time
 
-# -------------------- Realistic Train Data Generator --------------------
-def generate_realistic_trains(num_trains=50):
+# -------------------- Generate 100+ Realistic Indian Trains --------------------
+def generate_train_data():
+    """
+    Generate a list of 100+ realistic Indian trains with numbers and names.
+    No external files needed – all data is embedded.
+    """
+    # Base station/city names for train names
     cities = [
         "Mumbai", "Delhi", "Kolkata", "Chennai", "Bengaluru", "Hyderabad", "Ahmedabad",
         "Pune", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Bhopal", "Visakhapatnam",
-        "Patna", "Vadodara", "Ludhiana", "Agra", "Nashik", "Varanasi", "Amritsar", "Guwahati"
+        "Patna", "Vadodara", "Ludhiana", "Agra", "Nashik", "Faridabad", "Meerut", "Rajkot",
+        "Varanasi", "Srinagar", "Aurangabad", "Dhanbad", "Amritsar", "Allahabad", "Ranchi",
+        "Howrah", "Jabalpur", "Gwalior", "Vijayawada", "Jodhpur", "Madurai", "Raipur",
+        "Kota", "Chandigarh", "Guwahati", "Solapur", "Hubli", "Mysore", "Tiruchirappalli",
+        "Bareilly", "Aligarh", "Moradabad", "Bhubaneswar", "Coimbatore", "Kozhikode"
     ]
+    
+    # Train types and their typical speed ranges
     train_types = [
-        ("Rajdhani", 100, 120, 0.8, 1.0, 22),
-        ("Shatabdi", 110, 130, 0.9, 1.1, 20),
-        ("Duronto", 100, 120, 0.7, 0.9, 18),
-        ("Garib Rath", 80, 100, 0.6, 0.8, 16),
-        ("Express", 60, 90, 0.5, 0.7, 20),
-        ("Mail", 50, 80, 0.4, 0.6, 22),
-        ("Passenger", 40, 60, 0.3, 0.5, 15)
+        ("Rajdhani Express", 85, 95),
+        ("Shatabdi Express", 90, 100),
+        ("Duronto Express", 85, 95),
+        ("Garib Rath", 70, 80),
+        ("Humsafar Express", 75, 85),
+        ("Superfast Express", 70, 85),
+        ("Express", 60, 75),
+        ("Mail", 55, 70),
+        ("Passenger", 40, 55)
     ]
-
+    
     trains = []
-    used_numbers = set()
-    progress_bar = st.progress(0, text=f"Generating {num_trains} realistic trains...")
-
-    for i in range(num_trains):
-        if i % 10 == 0:
-            progress_bar.progress(i / num_trains)
-
+    train_counter = 0
+    
+    # Generate 100+ trains by combining cities and types
+    for i in range(120):  # Generate 120 trains (a bit more than 100)
+        # Pick random city pair (or single city) for name
         city1 = np.random.choice(cities)
         city2 = np.random.choice(cities)
         while city2 == city1:
             city2 = np.random.choice(cities)
-
-        typ = train_types[np.random.randint(len(train_types))]
-        type_name, min_speed, max_speed, accel, decel, coaches = typ
-
+        
+        # Random train type
+        type_name, speed_min, speed_max = train_types[np.random.randint(len(train_types))]
+        
+        # Construct name
+        if np.random.random() > 0.5:
+            name = f"{city1} {city2} {type_name}"
+        else:
+            name = f"{city1} {type_name}"
+        
+        # Generate unique train number (Indian style: 1xxxx, 2xxxx)
         base = np.random.choice([1, 2]) * 10000
         number = base + np.random.randint(1001, 9999)
-        while number in used_numbers:
-            number = base + np.random.randint(1001, 9999)
-        used_numbers.add(number)
-
-        name = f"{city1} {city2} {type_name}"
-        length_km = (coaches * 22) / 1000.0
-        origin = city1
-        dest = city2
-        dep_time = np.random.randint(0, 24*60)
-        travel_time = np.random.randint(120, 600)
-        arr_time = (dep_time + travel_time) % (24*60)
-
+        
+        # Ensure uniqueness by incrementing if duplicate (simple loop)
+        while any(t['number'] == str(number) for t in trains):
+            number += 1
+        
+        # Base speed
+        base_speed = np.random.uniform(speed_min, speed_max)
+        
         trains.append({
             "number": str(number),
             "name": name,
-            "type": type_name,
-            "length_km": length_km,
-            "max_speed_kmh": max_speed,
-            "accel_kmh_per_s": accel * 3.6,
-            "decel_kmh_per_s": decel * 3.6,
-            "origin": origin,
-            "destination": dest,
-            "departure_min": dep_time,
-            "arrival_min": arr_time,
-            "position_km": None,
-            "speed_kmh": None,
-            "delayed_min": 0
+            "base_speed": round(base_speed, 1)
         })
-
-    progress_bar.progress(1.0)
-    time.sleep(0.2)
-    progress_bar.empty()
+        
+        train_counter += 1
+        if train_counter >= 110:  # Stop at 110 trains
+            break
+    
+    # Assign random positions along 20 km section
+    np.random.seed(42)
+    positions = np.random.uniform(0, 20, size=len(trains))
+    speeds = [t["base_speed"] + np.random.randint(-5, 6) for t in trains]
+    for i, t in enumerate(trains):
+        t["position_km"] = positions[i]
+        t["speed_kmh"] = speeds[i]
+    
+    # Sort by position
+    trains.sort(key=lambda x: x["position_km"])
     return trains
 
-# -------------------- Railway Environment with Fixed Blocks --------------------
-class RailwaySectionEnv(gym.Env):
-    def __init__(self, trains, section_length_km=50, block_length_km=2):
+# -------------------- AI Environment for Training --------------------
+class SingleTrainControlEnv(gym.Env):
+    """
+    Environment for controlling one train (ego) with a lead train ahead and a follow train behind.
+    State: [ego_speed, front_distance, back_distance] normalized.
+    Action: 0 = decelerate, 1 = maintain, 2 = accelerate.
+    Reward: encourage safe distance (1.5-3 km) and high speed.
+    """
+    def __init__(self, max_speed=100, min_speed=30, time_step=1/3600):  # 1 sec in hours
         super().__init__()
-        self.trains = trains
-        self.section_length = section_length_km
-        self.block_length = block_length_km
-        self.num_blocks = int(self.section_length / self.block_length)
+        self.max_speed = max_speed
+        self.min_speed = min_speed
+        self.time_step = time_step  # hours
 
+        # Action: 0=decel, 1=maintain, 2=accel
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Box(low=0, high=1, shape=(3,), dtype=np.float32)
 
-        self.time_step = 1.0  # seconds
-        self.ego_idx = 0
-        self.trains_sorted = []
+        # Observation: [speed_norm, front_dist_norm, back_dist_norm]
+        # speed: 30-100 km/h, distances: 0-10 km
+        high = np.array([1.0, 1.0, 1.0], dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=high, dtype=np.float32)
+
         self.reset()
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        num = len(self.trains)
-        positions = np.random.uniform(0, self.section_length, size=num)
-        for i, t in enumerate(self.trains):
-            t["position_km"] = positions[i]
-            t["speed_kmh"] = np.random.uniform(30, t["max_speed_kmh"])
-            t["delayed_min"] = 0
-
-        self.trains_sorted = sorted(self.trains, key=lambda x: x["position_km"])
-        self.ego_idx = np.random.randint(len(self.trains_sorted))
+        # Initialize positions: lead at 15 km, ego at 10 km, follow at 5 km
+        self.lead_pos = 15.0
+        self.ego_pos = 10.0
+        self.follow_pos = 5.0
+        self.ego_speed = 60.0
+        self.lead_speed = 65.0
+        self.follow_speed = 55.0
         return self._get_obs(), {}
 
     def _get_obs(self):
-        ego = self.trains_sorted[self.ego_idx]
-        front_dist = None
-        for i in range(self.ego_idx + 1, len(self.trains_sorted)):
-            other = self.trains_sorted[i]
-            gap = other["position_km"] - ego["position_km"] - ego["length_km"]
-            if gap > 0:
-                front_dist = gap
-                break
-        if front_dist is None:
-            front_dist = self.section_length - ego["position_km"]
-
-        speed_norm = (ego["speed_kmh"] - 30) / (ego["max_speed_kmh"] - 30)
+        # Normalize: speed (30-100) -> (0-1), distance (0-10) -> (0-1)
+        speed_norm = (self.ego_speed - self.min_speed) / (self.max_speed - self.min_speed)
+        front_dist = max(0, self.lead_pos - self.ego_pos)
+        back_dist = max(0, self.ego_pos - self.follow_pos)
         front_norm = min(front_dist / 10.0, 1.0)
-        return np.array([speed_norm, front_norm, 0.5], dtype=np.float32)
+        back_norm = min(back_dist / 10.0, 1.0)
+        return np.array([speed_norm, front_norm, back_norm], dtype=np.float32)
 
     def step(self, action):
-        ego = self.trains_sorted[self.ego_idx]
+        # Apply action to ego speed
+        if action == 0:  # decelerate
+            self.ego_speed -= 5
+        elif action == 2:  # accelerate
+            self.ego_speed += 5
+        # Keep speed within limits
+        self.ego_speed = np.clip(self.ego_speed, self.min_speed, self.max_speed)
 
-        if action == 0:
-            ego["speed_kmh"] -= ego["decel_kmh_per_s"] * self.time_step
-        elif action == 2:
-            ego["speed_kmh"] += ego["accel_kmh_per_s"] * self.time_step
+        # Simulate lead and follow speeds with some randomness
+        self.lead_speed += np.random.randint(-2, 3)
+        self.lead_speed = np.clip(self.lead_speed, self.min_speed, self.max_speed)
+        self.follow_speed += np.random.randint(-2, 3)
+        self.follow_speed = np.clip(self.follow_speed, self.min_speed, self.max_speed)
 
-        ego["speed_kmh"] = np.clip(ego["speed_kmh"], 0, ego["max_speed_kmh"])
+        # Update positions (distance = speed * time_step)
+        self.lead_pos += self.lead_speed * self.time_step
+        self.ego_pos += self.ego_speed * self.time_step
+        self.follow_pos += self.follow_speed * self.time_step
 
-        dt_hours = self.time_step / 3600.0
-        for t in self.trains_sorted:
-            t["position_km"] += t["speed_kmh"] * dt_hours
-            t["position_km"] = min(t["position_km"], self.section_length)
+        # Keep positions within 0-20 km track
+        self.lead_pos = min(self.lead_pos, 20.0)
+        self.ego_pos = min(self.ego_pos, 20.0)
+        self.follow_pos = min(self.follow_pos, 20.0)
 
-        self.trains_sorted.sort(key=lambda x: x["position_km"])
-        for i, t in enumerate(self.trains_sorted):
-            if t["number"] == ego["number"]:
-                self.ego_idx = i
-                break
+        # Compute reward
+        front_dist = self.lead_pos - self.ego_pos
+        back_dist = self.ego_pos - self.follow_pos
+        reward = 0
 
-        front_dist = None
-        for i in range(self.ego_idx + 1, len(self.trains_sorted)):
-            other = self.trains_sorted[i]
-            gap = other["position_km"] - ego["position_km"] - ego["length_km"]
-            if gap > 0:
-                front_dist = gap
-                break
-        if front_dist is None:
-            front_dist = self.section_length - ego["position_km"]
-
-        reward = 0.1 * ego["speed_kmh"]
-        if front_dist < 1.0:
-            reward -= 50
-        elif front_dist < 2.0:
+        # Safety: very close front
+        if front_dist < 0.5:
             reward -= 10
+        elif front_dist < 1.5:
+            reward -= 2
+        elif 1.5 <= front_dist <= 3.0:
+            reward += 5
         elif front_dist > 5.0:
+            reward -= 1   # too far, capacity wasted
+
+        # Rear distance also matters for safety
+        if back_dist < 0.5:
             reward -= 5
 
-        if action != 1:
-            reward -= 1
+        # Encourage higher speed
+        reward += 0.05 * self.ego_speed
 
-        done = False
+        # Small penalty for harsh actions
+        if action == 0 or action == 2:
+            reward -= 0.2
+
+        done = False  # continuous, never done
         truncated = False
         return self._get_obs(), reward, done, truncated, {}
 
-# -------------------- Load or Train Model --------------------
+# -------------------- Train or Load DQN Model --------------------
 @st.cache_resource
-def load_or_train_model(env):
-    model_path = "dqn_railway.zip"
+def load_or_train_model():
+    model_path = "dqn_train_control.zip"
     if os.path.exists(model_path):
-        return DQN.load(model_path)
+        model = DQN.load(model_path)
     else:
-        vec_env = DummyVecEnv([lambda: env])
-        model = DQN("MlpPolicy", vec_env, verbose=0, learning_rate=0.001,
-                    buffer_size=10000, learning_starts=100, batch_size=32,
-                    tau=0.1, gamma=0.99, train_freq=4, gradient_steps=1)
-        with st.spinner("Training AI model for realistic railway..."):
-            model.learn(total_timesteps=10000)
-            model.save(model_path)
-        return model
+        # Create environment and train a quick model
+        env = DummyVecEnv([lambda: SingleTrainControlEnv()])
+        model = DQN("MlpPolicy", env, verbose=0, learning_rate=0.001, buffer_size=10000,
+                    learning_starts=100, batch_size=32, tau=0.1, gamma=0.99,
+                    train_freq=4, gradient_steps=1)
+        model.learn(total_timesteps=5000)
+        model.save(model_path)
+    return model
+
+# -------------------- Helper: Find Front/Back Trains --------------------
+def get_front_back(trains, selected_index):
+    """Return distances (km) to next train ahead and behind."""
+    front_dist = None
+    back_dist = None
+    if selected_index < len(trains) - 1:
+        front_dist = trains[selected_index + 1]["position_km"] - trains[selected_index]["position_km"]
+    if selected_index > 0:
+        back_dist = trains[selected_index]["position_km"] - trains[selected_index - 1]["position_km"]
+    return front_dist, back_dist
 
 # -------------------- Streamlit App --------------------
-st.set_page_config(page_title="Practical AI Train Control", layout="wide")
-st.title("🚆 Practical AI-Powered Railway Traffic Control")
+st.set_page_config(page_title="AI Train Control - Indian Railways", layout="wide")
+st.title("🚉 Maximizing Section Throughput with AI (Indian Railways)")
 st.markdown("---")
 
-st.sidebar.header("Simulation Settings")
-num_trains = st.sidebar.slider("Number of trains", 10, 100, 30, step=5)
-section_length = st.sidebar.number_input("Section length (km)", 20, 200, 50, step=10)
-
-if st.sidebar.button("🔄 New Simulation"):
-    st.cache_data.clear()
-    st.rerun()
-
-@st.cache_data(ttl=600)
-def get_trains(n):
-    return generate_realistic_trains(n)
-
-trains = get_trains(num_trains)
-
-# Create environment with error handling
-try:
-    env = RailwaySectionEnv(trains, section_length_km=section_length)
-except Exception as e:
-    st.error(f"Failed to create environment: {e}")
-    st.stop()
+# Initialize session state for train data
+if "trains" not in st.session_state:
+    st.session_state.trains = generate_train_data()
+    st.session_state.selected_idx = 0  # default
 
 # Load AI model
-model = load_or_train_model(env)
+model = load_or_train_model()
 
-st.subheader("Train Selection")
-train_options = [f"{t['number']} - {t['name']}" for t in trains]
-selected = st.selectbox("Choose a train to control", train_options)
-selected_idx = train_options.index(selected)
-ego = trains[selected_idx]
+# Sidebar: Train selection
+st.sidebar.header("Select Your Train")
+train_options = [f"{t['number']} - {t['name']}" for t in st.session_state.trains]
+selected_train = st.sidebar.selectbox("Train Number/Name", train_options)
+selected_idx = train_options.index(selected_train)
+st.session_state.selected_idx = selected_idx
 
-col1, col2, col3, col4 = st.columns(4)
+# Display current train info
+train = st.session_state.trains[selected_idx]
+front_dist, back_dist = get_front_back(st.session_state.trains, selected_idx)
+
+col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("Current Speed", f"{ego['speed_kmh']:.1f} km/h")
+    st.metric("Current Speed", f"{train['speed_kmh']:.1f} km/h")
 with col2:
-    st.metric("Max Speed", f"{ego['max_speed_kmh']} km/h")
+    st.metric("Train Ahead Distance", f"{front_dist:.2f} km" if front_dist else "No train")
 with col3:
-    st.metric("Length", f"{ego['length_km']*1000:.0f} m")
-with col4:
-    st.metric("Delay", f"{ego['delayed_min']:.0f} min")
+    st.metric("Train Behind Distance", f"{back_dist:.2f} km" if back_dist else "No train")
 
-# Find front train
-front_train = None
-front_dist = None
-for i in range(selected_idx + 1, len(trains)):
-    other = trains[i]
-    gap = other["position_km"] - ego["position_km"] - ego["length_km"]
-    if gap > 0:
-        front_train = other
-        front_dist = gap
-        break
-
-if front_train:
-    st.info(f"🚂 Train ahead: {front_train['number']} at {front_dist:.2f} km")
-else:
-    st.info("🚂 No train ahead (end of section)")
-
-st.subheader("Track View")
+# Clean Track Visualization
+st.subheader("Track View (0 to 20 km)")
 fig, ax = plt.subplots(figsize=(12, 2))
-ax.set_xlim(0, section_length)
-ax.set_ylim(0, 1)
+
+# Draw track line
+ax.axhline(y=0, color='gray', linestyle='-', linewidth=2)
+
+# Plot all trains as small light dots
+positions = [t['position_km'] for t in st.session_state.trains]
+ax.scatter(positions, [0]*len(positions), c='lightblue', s=30, alpha=0.6, zorder=1)
+
+# Highlight selected train in red
+ax.scatter(train['position_km'], 0, c='red', s=100, zorder=2, edgecolors='darkred', linewidth=2)
+ax.text(train['position_km'], 0.05, train['number'], ha='center', fontsize=9, fontweight='bold')
+
+# Annotate front train if exists
+if front_dist is not None and selected_idx < len(st.session_state.trains)-1:
+    front_train = st.session_state.trains[selected_idx+1]
+    ax.scatter(front_train['position_km'], 0, c='orange', s=70, zorder=2)
+    ax.text(front_train['position_km'], -0.08, front_train['number'], ha='center', fontsize=8, color='orange')
+
+# Annotate back train if exists
+if back_dist is not None and selected_idx > 0:
+    back_train = st.session_state.trains[selected_idx-1]
+    ax.scatter(back_train['position_km'], 0, c='orange', s=70, zorder=2)
+    ax.text(back_train['position_km'], -0.08, back_train['number'], ha='center', fontsize=8, color='orange')
+
+ax.set_xlim(0, 20)
+ax.set_ylim(-0.2, 0.2)
 ax.set_yticks([])
 ax.set_xlabel("Position (km)")
-
-# Draw blocks
-block_length = 2
-for i in range(0, int(section_length), block_length):
-    ax.axvspan(i, i+block_length, alpha=0.1, color='gray' if i%4==0 else 'lightgray')
-
-for t in trains:
-    color = 'red' if t['number'] == ego['number'] else 'blue'
-    ax.barh(0.5, t['length_km'], left=t['position_km'], height=0.2, color=color, edgecolor='black')
-    ax.text(t['position_km'] + t['length_km']/2, 0.7, t['number'][-4:], ha='center', fontsize=8)
+ax.set_title("Train Positions (Selected in Red, Neighbors in Orange)")
 
 st.pyplot(fig)
 
-if st.button("🚦 Get AI Speed Recommendation", type="primary"):
-    obs = env._get_obs().reshape(1, -1)
+# AI Recommendation Button
+if st.button("🚦 Get AI Speed Recommendation"):
+    # Prepare state for model
+    min_speed, max_speed = 30, 100
+    speed_norm = (train['speed_kmh'] - min_speed) / (max_speed - min_speed)
+    front_norm = min((front_dist if front_dist else 10) / 10.0, 1.0)
+    back_norm = min((back_dist if back_dist else 10) / 10.0, 1.0)
+    obs = np.array([[speed_norm, front_norm, back_norm]], dtype=np.float32)
+
+    # Predict action
     action, _ = model.predict(obs, deterministic=True)
-    action = action.item() if isinstance(action, np.ndarray) else int(action)
+    action = action.item()  # safe extraction
 
-    env.step(action)
-    st.success("AI recommendation applied. Positions updated.")
-    time.sleep(1)
-    st.rerun()
+    # Map action to speed change (same as environment)
+    speed_change = {0: -5, 1: 0, 2: 5}[action]
+    new_speed = train['speed_kmh'] + speed_change
+    new_speed = np.clip(new_speed, min_speed, max_speed)
 
-st.subheader("Section Throughput")
-st.metric("Trains in section", len(trains))
-avg_speed = np.mean([t['speed_kmh'] for t in trains])
-theoretical_throughput = avg_speed / 5
-st.metric("Estimated throughput (trains/h)", f"{theoretical_throughput:.1f}")
+    # Simulate one time step (1 second) to update positions
+    time_step = 1/3600  # hours
+    for t in st.session_state.trains:
+        t['position_km'] += t['speed_kmh'] * time_step
+        t['position_km'] = min(t['position_km'], 20.0)
+
+    # Update selected train's speed
+    st.session_state.trains[selected_idx]['speed_kmh'] = new_speed
+
+    # Re-sort trains by position
+    st.session_state.trains.sort(key=lambda x: x['position_km'])
+    # Find new index of selected train (by number)
+    for i, t in enumerate(st.session_state.trains):
+        if t['number'] == train['number']:
+            st.session_state.selected_idx = i
+            break
+
+    # Get updated distances
+    new_front, new_back = get_front_back(st.session_state.trains, st.session_state.selected_idx)
+
+    # Handle None values for front/back distances
+    front_text = f"{new_front:.2f} km" if new_front is not None else "No train"
+    back_text = f"{new_back:.2f} km" if new_back is not None else "No train"
+
+    # Display notification
+    st.success("### 📢 Driver Advisory")
+    st.info(
+        f"**Train {train['number']} - {train['name']}**\n\n"
+        f"🚄 **Recommended Speed:** {new_speed:.0f} km/h\n"
+        f"🔹 Train ahead at {front_text}\n"
+        f"🔸 Train behind at {back_text}"
+    )
 
 st.markdown("---")
-st.caption("""
-**Practical enhancements:**
-- Train lengths (200–600 m)
-- Fixed‑block signaling (blocks of 2 km)
-- Acceleration/braking limits
-- Station schedules (simulated delays)
-- Throughput estimation
-""")
+st.caption("AI model trained to maintain 1.5–3 km headway while maximizing speed. Notifications help drivers optimize throughput.")
