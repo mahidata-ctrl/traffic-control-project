@@ -9,13 +9,9 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 import os
 import time
 
-# -------------------- Generate 1000+ Realistic Indian Trains --------------------
-def generate_train_data(num_trains=1050):
-    """
-    Generate a list of realistic Indian trains with numbers and names.
-    No external files needed – all data is embedded.
-    """
-    # Extended list of Indian cities/stations (100+ cities)
+# -------------------- Generate Realistic Indian Trains --------------------
+def generate_train_data(num_trains=500):
+    """Generate a list of Indian trains (names, numbers, base speeds)."""
     cities = [
         "Mumbai", "Delhi", "Kolkata", "Chennai", "Bengaluru", "Hyderabad", "Ahmedabad",
         "Pune", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Bhopal", "Visakhapatnam",
@@ -47,70 +43,48 @@ def generate_train_data(num_trains=1050):
         "Ayodhya", "Amethi", "Rae Bareli", "Fatehpur", "Kaushambi"
     ]
     
-    # Train types and their typical speed ranges
     train_types = [
-        ("Rajdhani Express", 85, 95),
-        ("Shatabdi Express", 90, 100),
-        ("Duronto Express", 85, 95),
-        ("Garib Rath", 70, 80),
-        ("Humsafar Express", 75, 85),
-        ("Superfast Express", 70, 85),
-        ("Express", 60, 75),
-        ("Mail", 55, 70),
-        ("Passenger", 40, 55),
-        ("Jan Shatabdi", 65, 75),
-        ("Intercity Express", 60, 70),
-        ("Antyodaya Express", 70, 80),
-        ("Tejas Express", 90, 100),
-        ("Uday Express", 80, 90),
-        ("Mahamana Express", 75, 85),
-        ("Kavi Guru Express", 70, 80),
-        ("Vivek Express", 65, 75),
+        ("Rajdhani Express", 85, 95), ("Shatabdi Express", 90, 100),
+        ("Duronto Express", 85, 95), ("Garib Rath", 70, 80),
+        ("Humsafar Express", 75, 85), ("Superfast Express", 70, 85),
+        ("Express", 60, 75), ("Mail", 55, 70), ("Passenger", 40, 55),
+        ("Jan Shatabdi", 65, 75), ("Intercity Express", 60, 70),
+        ("Antyodaya Express", 70, 80), ("Tejas Express", 90, 100),
+        ("Uday Express", 80, 90), ("Mahamana Express", 75, 85),
+        ("Kavi Guru Express", 70, 80), ("Vivek Express", 65, 75),
         ("Yuva Express", 75, 85)
     ]
     
     trains = []
     used_numbers = set()
-    
-    # Use a progress bar for generation
-    progress_bar = st.progress(0, text="Generating 1000+ trains...")
+    progress_bar = st.progress(0, text=f"Generating {num_trains} trains...")
     
     for i in range(num_trains):
-        # Update progress every 100 trains
-        if i % 100 == 0:
+        if i % 50 == 0:
             progress_bar.progress(i / num_trains)
         
-        # Pick random city pair (or single city) for name
         city1 = np.random.choice(cities)
         city2 = np.random.choice(cities)
         while city2 == city1:
             city2 = np.random.choice(cities)
         
-        # Random train type
-        type_idx = np.random.randint(len(train_types))
-        type_name, speed_min, speed_max = train_types[type_idx]
+        type_name, speed_min, speed_max = train_types[np.random.randint(len(train_types))]
         
-        # Construct name
-        name_style = np.random.random()
-        if name_style < 0.4:
+        r = np.random.random()
+        if r < 0.4:
             name = f"{city1} {city2} {type_name}"
-        elif name_style < 0.7:
+        elif r < 0.7:
             name = f"{city1} {type_name}"
         else:
             name = f"{city1} - {city2} {type_name}"
         
-        # Generate unique train number (Indian style: 1xxxx, 2xxxx)
         base = np.random.choice([1, 2]) * 10000
         number = base + np.random.randint(1001, 9999)
-        
-        # Ensure uniqueness
         while number in used_numbers:
             number = base + np.random.randint(1001, 9999)
         used_numbers.add(number)
         
-        # Base speed
         base_speed = np.random.uniform(speed_min, speed_max)
-        
         trains.append({
             "number": str(number),
             "name": name,
@@ -118,22 +92,21 @@ def generate_train_data(num_trains=1050):
         })
     
     progress_bar.progress(1.0)
-    time.sleep(0.5)
+    time.sleep(0.2)
     progress_bar.empty()
     
-    # Assign random positions along 20 km section
+    # Assign random positions and speeds
     np.random.seed(42)
     positions = np.random.uniform(0, 20, size=len(trains))
     speeds = [t["base_speed"] + np.random.randint(-5, 6) for t in trains]
     for i, t in enumerate(trains):
         t["position_km"] = positions[i]
-        t["speed_kmh"] = max(30, min(100, speeds[i]))  # clamp to 30-100
+        t["speed_kmh"] = np.clip(speeds[i], 30, 100)
     
-    # Sort by position
     trains.sort(key=lambda x: x["position_km"])
     return trains
 
-# -------------------- AI Environment for Training --------------------
+# -------------------- AI Environment --------------------
 class SingleTrainControlEnv(gym.Env):
     def __init__(self, max_speed=100, min_speed=30, time_step=1/3600):
         super().__init__()
@@ -178,10 +151,9 @@ class SingleTrainControlEnv(gym.Env):
         self.lead_pos += self.lead_speed * self.time_step
         self.ego_pos += self.ego_speed * self.time_step
         self.follow_pos += self.follow_speed * self.time_step
-
-        self.lead_pos = min(self.lead_pos, 20.0)
-        self.ego_pos = min(self.ego_pos, 20.0)
-        self.follow_pos = min(self.follow_pos, 20.0)
+        self.lead_pos = np.clip(self.lead_pos, 0, 20)
+        self.ego_pos = np.clip(self.ego_pos, 0, 20)
+        self.follow_pos = np.clip(self.follow_pos, 0, 20)
 
         front_dist = self.lead_pos - self.ego_pos
         back_dist = self.ego_pos - self.follow_pos
@@ -207,157 +179,151 @@ class SingleTrainControlEnv(gym.Env):
         truncated = False
         return self._get_obs(), reward, done, truncated, {}
 
-# -------------------- Train or Load DQN Model --------------------
+# -------------------- Load or Train Model --------------------
 @st.cache_resource
 def load_or_train_model():
     model_path = "dqn_train_control.zip"
     if os.path.exists(model_path):
-        model = DQN.load(model_path)
+        return DQN.load(model_path)
     else:
         env = DummyVecEnv([lambda: SingleTrainControlEnv()])
         model = DQN("MlpPolicy", env, verbose=0, learning_rate=0.001, buffer_size=10000,
                     learning_starts=100, batch_size=32, tau=0.1, gamma=0.99,
                     train_freq=4, gradient_steps=1)
-        with st.spinner("Training AI model (first run only)..."):
+        with st.spinner("Training AI model for the first time..."):
             model.learn(total_timesteps=5000)
             model.save(model_path)
-    return model
+        return model
 
-# -------------------- Helper: Find Front/Back Trains --------------------
-def get_front_back(trains, selected_index):
-    """Return distances (km) to next train ahead and behind, ensuring non-negative."""
-    front_dist = None
-    back_dist = None
-    if selected_index < len(trains) - 1:
-        front_dist = trains[selected_index + 1]["position_km"] - trains[selected_index]["position_km"]
-        front_dist = max(0, front_dist)  # ensure non-negative
-    if selected_index > 0:
-        back_dist = trains[selected_index]["position_km"] - trains[selected_index - 1]["position_km"]
-        back_dist = max(0, back_dist)
-    return front_dist, back_dist
+# -------------------- Helper --------------------
+def get_front_back(trains, idx):
+    front = None
+    back = None
+    if idx < len(trains) - 1:
+        front = trains[idx + 1]["position_km"] - trains[idx]["position_km"]
+        front = max(0, front)
+    if idx > 0:
+        back = trains[idx]["position_km"] - trains[idx - 1]["position_km"]
+        back = max(0, back)
+    return front, back
 
 # -------------------- Streamlit App --------------------
-st.set_page_config(page_title="AI Train Control - Indian Railways", layout="wide")
-st.title("🚉 Maximizing Section Throughput with AI (Indian Railways)")
+st.set_page_config(page_title="AI Train Control", layout="wide")
+st.title("🚉 AI-Powered Train Traffic Control (Indian Railways)")
 st.markdown("---")
 
-# Initialize session state for train data
+# Sidebar controls
+st.sidebar.header("Settings")
+num_trains = st.sidebar.slider("Number of trains in simulation", 100, 2000, 500, step=50,
+                               help="More trains = more fun, but remember it's just a demo!")
+if st.sidebar.button("🔄 Regenerate Trains"):
+    st.cache_data.clear()
+    st.rerun()
+
+# Load or generate train data
+@st.cache_data(ttl=600)
+def get_trains(n):
+    return generate_train_data(n)
+
 if "trains" not in st.session_state:
-    st.session_state.trains = generate_train_data(1050)  # generate 1050 trains
+    st.session_state.trains = get_trains(num_trains)
+    st.session_state.selected_idx = 0
+
+# Update if slider changed
+if len(st.session_state.trains) != num_trains:
+    st.session_state.trains = get_trains(num_trains)
     st.session_state.selected_idx = 0
 
 # Load AI model
 model = load_or_train_model()
 
-# Sidebar: Train selection
+# Train selection
 st.sidebar.header("Select Your Train")
-
-# For large number of trains, use a searchable selectbox
 train_options = [f"{t['number']} - {t['name']}" for t in st.session_state.trains]
-selected_train = st.sidebar.selectbox(
-    "Train Number/Name",
-    train_options,
-    index=st.session_state.selected_idx,
-    placeholder="Type to search..."
-)
-selected_idx = train_options.index(selected_train)
+selected = st.sidebar.selectbox("Train Number/Name", train_options,
+                                index=st.session_state.selected_idx,
+                                placeholder="Type to search...")
+selected_idx = train_options.index(selected)
 st.session_state.selected_idx = selected_idx
 
-# Display current train info
 train = st.session_state.trains[selected_idx]
 front_dist, back_dist = get_front_back(st.session_state.trains, selected_idx)
 
+# Metrics
 col1, col2, col3 = st.columns(3)
 with col1:
     st.metric("Current Speed", f"{train['speed_kmh']:.1f} km/h")
 with col2:
-    st.metric("Train Ahead Distance", f"{front_dist:.2f} km" if front_dist is not None else "No train")
+    st.metric("Train Ahead", f"{front_dist:.2f} km" if front_dist is not None else "No train")
 with col3:
-    st.metric("Train Behind Distance", f"{back_dist:.2f} km" if back_dist is not None else "No train")
+    st.metric("Train Behind", f"{back_dist:.2f} km" if back_dist is not None else "No train")
 
-# Track Visualization (clean, only neighbors labeled)
-st.subheader("Track View (0 to 20 km)")
+# Track visualization
+st.subheader("Track View (0–20 km)")
 fig, ax = plt.subplots(figsize=(12, 2))
-
-# Draw track line
 ax.axhline(y=0, color='gray', linestyle='-', linewidth=2)
-
-# Plot all trains as small light dots (low alpha to avoid clutter)
 positions = [t['position_km'] for t in st.session_state.trains]
 ax.scatter(positions, [0]*len(positions), c='lightblue', s=20, alpha=0.3, zorder=1)
-
-# Highlight selected train in red
 ax.scatter(train['position_km'], 0, c='red', s=120, zorder=3, edgecolors='darkred', linewidth=2)
 ax.text(train['position_km'], 0.05, train['number'], ha='center', fontsize=9, fontweight='bold')
-
-# Annotate front train if exists
 if front_dist is not None and selected_idx < len(st.session_state.trains)-1:
-    front_train = st.session_state.trains[selected_idx+1]
-    ax.scatter(front_train['position_km'], 0, c='orange', s=80, zorder=2)
-    ax.text(front_train['position_km'], -0.08, front_train['number'], ha='center', fontsize=8, color='orange')
-
-# Annotate back train if exists
+    ft = st.session_state.trains[selected_idx+1]
+    ax.scatter(ft['position_km'], 0, c='orange', s=80, zorder=2)
+    ax.text(ft['position_km'], -0.08, ft['number'], ha='center', fontsize=8, color='orange')
 if back_dist is not None and selected_idx > 0:
-    back_train = st.session_state.trains[selected_idx-1]
-    ax.scatter(back_train['position_km'], 0, c='orange', s=80, zorder=2)
-    ax.text(back_train['position_km'], -0.08, back_train['number'], ha='center', fontsize=8, color='orange')
-
+    bt = st.session_state.trains[selected_idx-1]
+    ax.scatter(bt['position_km'], 0, c='orange', s=80, zorder=2)
+    ax.text(bt['position_km'], -0.08, bt['number'], ha='center', fontsize=8, color='orange')
 ax.set_xlim(0, 20)
 ax.set_ylim(-0.2, 0.2)
 ax.set_yticks([])
 ax.set_xlabel("Position (km)")
-ax.set_title(f"Train Positions ({len(st.session_state.trains)} trains on track)")
-
+ax.set_title(f"{len(st.session_state.trains)} trains on track (selected red, neighbours orange)")
 st.pyplot(fig)
 
 # AI Recommendation Button
-if st.button("🚦 Get AI Speed Recommendation"):
+if st.button("🚦 Get AI Speed Recommendation", type="primary"):
     try:
         # Prepare observation
         min_speed, max_speed = 30, 100
         speed_norm = (train['speed_kmh'] - min_speed) / (max_speed - min_speed)
-        # Use safe defaults if distances are None
-        front_val = front_dist if front_dist is not None else 10.0
-        back_val = back_dist if back_dist is not None else 10.0
-        front_norm = min(front_val / 10.0, 1.0)
-        back_norm = min(back_val / 10.0, 1.0)
+        # Default to 10 km if no train ahead/behind
+        f_val = front_dist if front_dist is not None else 10.0
+        b_val = back_dist if back_dist is not None else 10.0
+        front_norm = np.clip(f_val / 10.0, 0, 1)
+        back_norm = np.clip(b_val / 10.0, 0, 1)
         obs = np.array([[speed_norm, front_norm, back_norm]], dtype=np.float32)
 
-        # Predict action
+        # Predict action – safely handle any return type
         action, _ = model.predict(obs, deterministic=True)
-        # Ensure action is a scalar integer
         if isinstance(action, np.ndarray):
-            action = action.item()
+            action = action.item() if action.size == 1 else int(action[0])
+        else:
+            action = int(action)
 
-        # Map action to speed change
+        # Map action
         speed_change = {0: -5, 1: 0, 2: 5}[action]
         new_speed = train['speed_kmh'] + speed_change
         new_speed = np.clip(new_speed, min_speed, max_speed)
 
-        # Simulate one time step (1 second)
-        time_step = 1/3600  # hours
+        # Simulate one second
+        dt = 1 / 3600  # hours
         for t in st.session_state.trains:
-            t['position_km'] += t['speed_kmh'] * time_step
+            t['position_km'] += t['speed_kmh'] * dt
             t['position_km'] = np.clip(t['position_km'], 0, 20)
 
-        # Update selected train's speed
+        # Update selected train speed
         st.session_state.trains[selected_idx]['speed_kmh'] = new_speed
 
-        # Re-sort trains by position
+        # Re‑sort and find new index
         st.session_state.trains.sort(key=lambda x: x['position_km'])
-        # Find new index of selected train
-        new_idx = None
-        for i, t in enumerate(st.session_state.trains):
-            if t['number'] == train['number']:
-                new_idx = i
-                break
-        if new_idx is not None:
-            st.session_state.selected_idx = new_idx
+        new_idx = next((i for i, t in enumerate(st.session_state.trains) if t['number'] == train['number']), selected_idx)
+        st.session_state.selected_idx = new_idx
 
         # Get updated distances
-        new_front, new_back = get_front_back(st.session_state.trains, st.session_state.selected_idx)
+        new_front, new_back = get_front_back(st.session_state.trains, new_idx)
 
-        # Format output safely
+        # Format output
         front_text = f"{new_front:.2f} km" if new_front is not None else "No train"
         back_text = f"{new_back:.2f} km" if new_back is not None else "No train"
 
@@ -369,14 +335,14 @@ if st.button("🚦 Get AI Speed Recommendation"):
             f"🔹 Train ahead at {front_text}\n"
             f"🔸 Train behind at {back_text}"
         )
-
-        # Optional: Show action taken
         action_names = {0: "BRAKE", 1: "COAST", 2: "ACCELERATE"}
         st.caption(f"AI action: {action_names[action]}")
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
-        st.info("Please try again or reload the app.")
+        st.info("Please try again. If the problem persists, reduce the number of trains or restart the app.")
 
 st.markdown("---")
-st.caption(f"✅ AI model trained to maintain 1.5–3 km headway. Currently {len(st.session_state.trains)} trains on the track.")
+st.caption(f"✅ Simulation running with {len(st.session_state.trains)} trains. "
+           "The AI recommends speeds to maintain safe but close following distances, "
+           "maximizing track throughput.")
