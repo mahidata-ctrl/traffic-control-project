@@ -205,8 +205,12 @@ def get_trains(n):
 
 trains = get_trains(num_trains)
 
-# Create environment (not cached because it holds mutable state)
-env = RailwaySectionEnv(trains, section_length_km=section_length)
+# Create environment with error handling
+try:
+    env = RailwaySectionEnv(trains, section_length_km=section_length)
+except Exception as e:
+    st.error(f"Failed to create environment: {e}")
+    st.stop()
 
 # Load AI model
 model = load_or_train_model(env)
